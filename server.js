@@ -58,6 +58,6 @@ app.get('/', (req, res) => {
 //         return res.status(500).json({message: "Internal server error"});
 //     }
 // });
-app.listen(PORT,'0.0.0.0', () => {
+app.listen(ENV.PORT,'0.0.0.0', () => {
     console.log("The server is running");
 });
