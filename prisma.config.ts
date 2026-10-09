@@ -7,7 +7,7 @@ export default definePrismaConfig({
   orm: ormConfig({
     contract: "./src/prisma/contract.prisma",
     db: {
-      connection: ENV.DB_URL,
+      connection: ENV.DATABASE_PUBLIC_URL,
     },
   }),
 });
