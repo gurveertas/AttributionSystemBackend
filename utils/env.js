@@ -11,10 +11,16 @@ if (!process.env.DB_URL) {
     console.error("DB url missing from env");
     throw new Error("DB url missing from env");
 }
+if (!process.env.PORT) {
+    console.log(PORT)
+    console.error("port missing from env");
+    throw new Error("port missing from env");
+}
 
 const ENV = {
     DB_URL : process.env.DB_URL,
-    JWT_SECRET : process.env.JWT_SECRET
+    JWT_SECRET : process.env.JWT_SECRET,
+    PORT : 3000
 }
 
 export default ENV;

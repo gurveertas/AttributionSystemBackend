@@ -4,6 +4,7 @@ import genVisitor from './utils/genVisitor.js';
 import cookieParser from 'cookie-parser';
 import { db } from './src/prisma/db.js';
 import authRoutes from './routes/authRoutes.js'
+import ENV from './utils/env.js'
 
 
 const app = express();
@@ -57,6 +58,6 @@ app.get('/', (req, res) => {
 //         return res.status(500).json({message: "Internal server error"});
 //     }
 // });
-app.listen(3000, () => {
+app.listen(PORT,'0.0.0.0', () => {
     console.log("The server is running");
 });
