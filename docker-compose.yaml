@@ -1,4 +1,8 @@
 services:
+  server:
+    build: .
+    env_file:
+     -  .env
   db:
     image: postgres:17
     container_name: test_postgres

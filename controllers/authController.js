@@ -75,14 +75,12 @@ export const registerCompany = async (req, res) => {
 
 export const companyLogin = async (req, res) => {
     try {
-        console.log("Request made");
         const { email, password } = req.body;
         if (!email || !password) {
             return res.status(400).json({
                 message: "Email and password are required"
             });
         }
-        console.log(email, password);
         const normalizedEmail = email.trim().toLowerCase();
         const user = await db.orm.public.User.where({email: normalizedEmail}).first();
 
