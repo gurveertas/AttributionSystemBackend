@@ -3,13 +3,11 @@ import cors from 'cors';
 import genVisitor from './utils/genVisitor.js';
 import cookieParser from 'cookie-parser';
 import { db } from './src/prisma/db.js';
-// import bcrypt from 'bcrypt';
-// import { genSlug } from './utils/genSlug.js';
 import authRoutes from './routes/authRoutes.js'
 
 
 const app = express();
-
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
@@ -59,13 +57,6 @@ app.post('/checkout', (req, res) => {
         return res.status(500).json({message: "Internal server error"});
     }
 });
-
-// app.post('/company', async (req, res) => {
-//     console.log("Storing the company credetials");
-//     const {}
-// })
-
-
 app.listen(3000, () => {
     console.log("The server is running");
 });

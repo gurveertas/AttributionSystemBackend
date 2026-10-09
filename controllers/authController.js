@@ -1,6 +1,9 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import genSlug from '../utils/genSlug.js';
 import { db } from '../src/prisma/db.js';
+import genToken  from '../utils/genToken.js';
+import jwt from 'jsonwebtoken';
+
 export const registerCompany = async (req, res) => {
     try {
             const {
@@ -97,10 +100,9 @@ export const companyLogin = async (req, res) => {
                 message: "Invalid email or password"
             });
         }
-        // genToken(user);
+        genToken(user, res);
         return res.status(200).json({
             message: "User verified",
-            user
         });
     
     }
@@ -110,4 +112,22 @@ export const companyLogin = async (req, res) => {
             message: "Internal server error from login controller"
         });
     }
+}
+
+export const sendMe = async (req, res) => {
+    try {
+        const token = req.cookies.user_token;
+        if(!token){
+            return res.status(400).json({message: "No token provided in cookies"});
+        }
+        const decoded = jwt.decode(token);
+        if(!decoded){
+            return res.status(400).json({message: "Token didn't got decoded"});
+        }
+        return res.status(200).json({message: "Token decoded", decoded});
+    } catch (error) {
+            return res.status(500).json({message: "Internal server error while gettin jwt token for user"});
+        
+    }
+
 }
