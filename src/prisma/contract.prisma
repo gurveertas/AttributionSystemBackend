@@ -1,0 +1,345 @@
+// use prisma-8
+
+// ──────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────
+
+enum WorkspaceStatus {
+  @@type("pg/text@1")
+  pending   = "pending"
+  active    = "active"
+  suspended = "suspended"
+  closed    = "closed"
+}
+
+enum ConsentMode {
+  @@type("pg/text@1")
+  off     = "off"
+  opt_in  = "opt_in"
+  opt_out = "opt_out"
+}
+
+enum DefaultModel {
+  @@type("pg/text@1")
+  first_touch     = "first_touch"
+  last_touch      = "last_touch"
+  last_non_direct = "last_non_direct"
+  linear          = "linear"
+  time_decay      = "time_decay"
+  position_based  = "position_based"
+}
+
+enum UserRole {
+  @@type("pg/text@1")
+  platform_admin = "platform_admin"
+  company_admin  = "company_admin"
+  company_viewer = "company_viewer"
+}
+
+enum UserStatus {
+  @@type("pg/text@1")
+  invited     = "invited"
+  active      = "active"
+  deactivated = "deactivated"
+}
+
+enum ApiKeyType {
+  @@type("pg/text@1")
+  publishable = "publishable"
+  secret      = "secret"
+}
+
+enum ApiKeyMode {
+  @@type("pg/text@1")
+  test = "test"
+  live = "live"
+}
+
+enum ActorType {
+  @@type("pg/text@1")
+  user           = "user"
+  platform_admin = "platform_admin"
+  api_key        = "api_key"
+  system         = "system"
+}
+
+enum VerificationMethod {
+  @@type("pg/text@1")
+  dns_txt  = "dns_txt"
+  meta_tag = "meta_tag"
+}
+
+enum ConnectorType {
+  @@type("pg/text@1")
+  zenoti      = "zenoti"
+  stripe      = "stripe"
+  shopify     = "shopify"
+  razorpay    = "razorpay"
+  generic     = "generic"
+  woocommerce = "woocommerce"
+  paypal      = "paypal"
+  square      = "square"
+}
+
+enum ConnectorStatus {
+  @@type("pg/text@1")
+  pending  = "pending"
+  healthy  = "healthy"
+  failing  = "failing"
+  disabled = "disabled"
+}
+
+// ──────────────────────────────────────────
+// A. Tenancy and access
+// ──────────────────────────────────────────
+
+model Workspace {
+  id                 String              @id @default(uuid())
+  name               String
+  slug               String              @unique
+  status             WorkspaceStatus     @default(pending)
+  country            VarChar(2)
+  dataRegion         String?
+  industry           String?
+  websiteUrl         String?
+  timezone           String              @default("UTC")
+  reportingCurrency  VarChar(3)          @default("USD")
+  weekStart          SmallInt            @default(1)
+  defaultModel       DefaultModel        @default(last_non_direct)
+  lookbackDays       Int                 @default(30)
+  lookbackOverrides  Json?
+  consentMode        ConsentMode         @default(off)
+  rawRetentionMonths Int                 @default(13)
+  plan               String?
+  approvedAt         TimestamptzString?
+  approvedBy         String?
+  suspendedReason    String?
+  deletedAt          TimestamptzString?
+  createdAt          TimestamptzString   @default(now())
+  updatedAt          temporal.updatedAtString()
+
+  users              User[]
+  sites              Site[]
+  locations          Location[]
+  apiKeys            ApiKey[]
+  invites            Invite[]
+  auditLogs          AuditLog[]
+  connectors         Connector[]
+  webhookEndpoints   WebhookEndpoint[]
+  channelMappingRules ChannelMappingRule[]
+  supportAccessSessions SupportAccessSession[]
+}
+
+model User {
+  id                String             @id @default(uuid())
+  workspaceId       String?
+  workspace         Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email             String             @unique
+  passwordHash      String
+  name              String
+  role              UserRole
+  status            UserStatus         @default(invited)
+  emailVerifiedAt   TimestamptzString?
+  twoFactorEnabled  Boolean            @default(false)
+  failedLoginCount  Int                @default(0)
+  lockedUntil       TimestamptzString?
+  lastLoginAt       TimestamptzString?
+  createdAt         TimestamptzString  @default(now())
+  updatedAt         temporal.updatedAtString()
+
+  sessions          Session[]
+  invitesSent       Invite[]
+  locationAccess    UserLocationAccess[]
+
+  @@index([workspaceId])
+}
+
+model UserLocationAccess {
+  userId      String
+  locationId  String
+  workspaceId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location    Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, locationId])
+  @@index([workspaceId])
+}
+
+model Session {
+  id               String             @id @default(uuid())
+  userId           String
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  ip               String?
+  userAgent        String?
+  expiresAt        TimestamptzString
+  revokedAt        TimestamptzString?
+  lastSeenAt       TimestamptzString?
+  createdAt        TimestamptzString  @default(now())
+
+  @@index([userId])
+}
+
+model Invite {
+  id                 String             @id @default(uuid())
+  workspaceId        String
+  workspace          Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email              String
+  role               UserRole
+  allowedLocationIds String[]
+  invitedBy          String
+  inviter            User               @relation(fields: [invitedBy], references: [id])
+  tokenHash          String             @unique
+  expiresAt          TimestamptzString
+  acceptedAt         TimestamptzString?
+  revokedAt          TimestamptzString?
+  createdAt          TimestamptzString  @default(now())
+
+  @@index([workspaceId])
+}
+
+model ApiKey {
+  id              String             @id @default(uuid())
+  workspaceId     String
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  siteId          String?
+  site            Site?              @relation(fields: [siteId], references: [id])
+  name            String
+  type            ApiKeyType
+  mode            ApiKeyMode         @default(live)
+  keyPrefix       VarChar(8)
+  keyHash         String             @unique
+  allowedOrigins  String[]
+  rateLimitPerMin Int                @default(60)
+  lastUsedAt      TimestamptzString?
+  expiresAt       TimestamptzString?
+  rotatedFromId   String?
+  revokedAt       TimestamptzString?
+  createdBy       String
+  createdAt       TimestamptzString  @default(now())
+
+  @@index([workspaceId])
+}
+
+model AuditLog {
+  id            String             @id @default(uuid())
+  workspaceId   String?
+  workspace     Workspace?         @relation(fields: [workspaceId], references: [id])
+  actorType     ActorType
+  actorUserId   String?
+  action        String
+  targetType    String?
+  targetId      String?
+  reason        String?
+  metadata      Json?
+  ip            String?
+  userAgent     String?
+  createdAt     TimestamptzString  @default(now())
+
+  @@index([workspaceId])
+  @@index([actorUserId])
+  @@index([action])
+}
+
+model SupportAccessSession {
+  id            String             @id @default(uuid())
+  adminUserId   String
+  workspaceId   String
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id])
+  reason        String
+  maskPii       Boolean            @default(true)
+  startedAt     TimestamptzString  @default(now())
+  expiresAt     TimestamptzString
+  endedAt       TimestamptzString?
+
+  @@index([workspaceId])
+}
+
+// ──────────────────────────────────────────
+// B. Company setup
+// ──────────────────────────────────────────
+
+model Site {
+  id                  String             @id @default(uuid())
+  workspaceId         String
+  workspace           Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  domain              String
+  allowedOrigins      String[]
+  sdkSettings         Json?
+  verificationMethod  VerificationMethod?
+  verificationToken   String?
+  verifiedAt          TimestamptzString?
+  createdAt           TimestamptzString  @default(now())
+  updatedAt           temporal.updatedAtString()
+
+  apiKeys             ApiKey[]
+
+  @@unique([workspaceId, domain])
+}
+
+model Location {
+  id           String             @id @default(uuid())
+  workspaceId  String
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name         String
+  timezone     String             @default("UTC")
+  currency     VarChar(3)         @default("USD")
+  externalIds  Json?
+  isActive     Boolean            @default(true)
+  createdAt    TimestamptzString  @default(now())
+  updatedAt    temporal.updatedAtString()
+
+  locationAccess UserLocationAccess[]
+
+  @@index([workspaceId])
+}
+
+model ChannelMappingRule {
+  id          String             @id @default(uuid())
+  workspaceId String
+  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  priority    Int
+  match       Json
+  channel     String
+  isActive    Boolean            @default(true)
+  createdAt   TimestamptzString  @default(now())
+  updatedAt   temporal.updatedAtString()
+
+  @@index([workspaceId])
+}
+
+model Connector {
+  id           String             @id @default(uuid())
+  workspaceId  String
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type         ConnectorType
+  name         String
+  publicId     String             @unique
+  status       ConnectorStatus    @default(pending)
+  config       Json?
+  secretsEnc   Bytes?
+  lastEventAt  TimestamptzString?
+  errorCount   Int                @default(0)
+  lastError    String?
+  lastErrorAt  TimestamptzString?
+  createdAt    TimestamptzString  @default(now())
+  updatedAt    temporal.updatedAtString()
+
+  @@index([workspaceId])
+}
+
+model WebhookEndpoint {
+  id                  String             @id @default(uuid())
+  workspaceId         String
+  workspace           Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  url                 String
+  eventTypes          String[]
+  signingSecretEnc    Bytes?
+  isActive            Boolean            @default(true)
+  consecutiveFailures Int                @default(0)
+  disabledReason      String?
+  createdAt           TimestamptzString  @default(now())
+  updatedAt           temporal.updatedAtString()
+
+  @@index([workspaceId])
+}
