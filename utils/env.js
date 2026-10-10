@@ -17,7 +17,7 @@ if (!process.env.PORT) {
 const ENV = {
     DATABASE_PUBLIC_URL : process.env.DATABASE_PUBLIC_URL,
     JWT_SECRET : process.env.JWT_SECRET,
-    PORT : 3000
+    PORT : process.env.PORT
 }
 
 export default ENV;
