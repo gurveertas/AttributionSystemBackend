@@ -335,7 +335,7 @@
                   "codecId": "sql/varchar@1",
                   "kind": "scalar",
                   "typeParams": {
-                    "length": 8
+                    "length": 16
                   }
                 }
               },
@@ -2126,6 +2126,20 @@
                   "kind": "scalar"
                 }
               },
+              "emailVerificationExpires": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "emailVerificationHash": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -2419,6 +2433,12 @@
                 "deletedAt": {
                   "column": "deletedAt"
                 },
+                "emailVerificationExpires": {
+                  "column": "emailVerificationExpires"
+                },
+                "emailVerificationHash": {
+                  "column": "emailVerificationHash"
+                },
                 "id": {
                   "column": "id"
                 },
@@ -2539,7 +2559,7 @@
                   "dataType": "pg/varchar",
                   "nullable": false,
                   "typeParams": {
-                    "length": 8
+                    "length": 16
                   }
                 },
                 "lastUsedAt": {
@@ -4030,6 +4050,16 @@
                   "dataType": "pg/timestamptz",
                   "nullable": true
                 },
+                "emailVerificationExpires": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": true
+                },
+                "emailVerificationHash": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "id": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -4258,7 +4288,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "f3ed14a2e521178e75091cca246d206ccbdc53672fabec6c6de013ddb2798e48"
+    "storageHash": "7a6ae714d7c679ec9e7f15d108460a31211ede25eb657bddfa99883ddba93d05"
   },
   "execution": {
     "executionHash": "b20b50d0e4a434a47dfc16260c9f4efdba6bfe8bcbf1b6e1ce18452098f48f39",

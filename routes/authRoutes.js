@@ -3,6 +3,9 @@ import { registerCompany, companyLogin, sendMe, userLogout} from '../controllers
 const router = express.Router(); 
 router.post('/company/register', registerCompany);
 router.post('/user/login', companyLogin);
+router.post('/verify-user', verifyUser);
+router.get('/verify-user', verifyUser);
+router.post('/user/forgotpass', forgotPass);
 router.get('/me', sendMe);
 router.post('/logout', userLogout)
 
