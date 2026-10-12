@@ -94,40 +94,42 @@ enum ConnectorStatus {
 // ──────────────────────────────────────────
 
 model Workspace {
-  id                 String              @id @default(uuid())
-  name               String
-  slug               String              @unique
-  status             WorkspaceStatus     @default(pending)
-  country            VarChar(2)
-  dataRegion         String?
-  industry           String?
-  websiteUrl         String?
-  timezone           String              @default("UTC")
-  reportingCurrency  VarChar(3)          @default("USD")
-  weekStart          SmallInt            @default(1)
-  defaultModel       DefaultModel        @default(last_non_direct)
-  lookbackDays       Int                 @default(30)
-  lookbackOverrides  Json?
-  consentMode        ConsentMode         @default(off)
-  rawRetentionMonths Int                 @default(13)
-  plan               String?
-  approvedAt         TimestamptzString?
-  approvedBy         String?
-  suspendedReason    String?
-  deletedAt          TimestamptzString?
-  createdAt          TimestamptzString   @default(now())
-  updatedAt          temporal.updatedAtString()
+  id                      String              @id @default(uuid())
+  name                    String
+  slug                    String              @unique
+  status                  WorkspaceStatus     @default(pending)
+  country                 VarChar(2)
+  dataRegion              String?
+  industry                String?
+  websiteUrl              String?
+  timezone                String              @default("UTC")
+  emailVerificationHash    String?
+  emailVerificationExpires TimestamptzString?
+  reportingCurrency       VarChar(3)          @default("USD")
+  weekStart               SmallInt            @default(1)
+  defaultModel            DefaultModel        @default(last_non_direct)
+  lookbackDays            Int                 @default(30)
+  lookbackOverrides       Json?
+  consentMode             ConsentMode         @default(off)
+  rawRetentionMonths      Int                 @default(13)
+  plan                    String?
+  approvedAt              TimestamptzString?
+  approvedBy              String?
+  suspendedReason         String?
+  deletedAt               TimestamptzString?
+  createdAt               TimestamptzString   @default(now())
+  updatedAt               temporal.updatedAtString()
 
-  users              User[]
-  sites              Site[]
-  locations          Location[]
-  apiKeys            ApiKey[]
-  invites            Invite[]
-  auditLogs          AuditLog[]
-  connectors         Connector[]
-  webhookEndpoints   WebhookEndpoint[]
-  channelMappingRules ChannelMappingRule[]
-  supportAccessSessions SupportAccessSession[]
+  users                   User[]
+  sites                   Site[]
+  locations               Location[]
+  apiKeys                 ApiKey[]
+  invites                 Invite[]
+  auditLogs               AuditLog[]
+  connectors              Connector[]
+  webhookEndpoints        WebhookEndpoint[]
+  channelMappingRules      ChannelMappingRule[]
+  supportAccessSessions      SupportAccessSession[]
 }
 
 model User {
@@ -207,7 +209,7 @@ model ApiKey {
   name            String
   type            ApiKeyType
   mode            ApiKeyMode         @default(live)
-  keyPrefix       VarChar(8)
+  keyPrefix       VarChar(16)
   keyHash         String             @unique
   allowedOrigins  String[]
   rateLimitPerMin Int                @default(60)

@@ -11,8 +11,9 @@ export const genToken = (user, res) => {
     const token = jwt.sign(payload, ENV.JWT_SECRET, {expiresIn : '15m'});
     res.cookie("user_token", token, {
         secure: true,
-        sameSite : 'lax',
-        expiresIn : 7 * 24 * 60 * 60 * 1000
+        httpOnly: true,
+        sameSite: 'none',
+        maxAge: 7 * 24 * 60 * 60 * 1000
     });
     } catch (error) {
         return res.status(500).json('Internal server error while generating cookie');

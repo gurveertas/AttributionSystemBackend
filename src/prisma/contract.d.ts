@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'f3ed14a2e521178e75091cca246d206ccbdc53672fabec6c6de013ddb2798e48'>;
+  StorageHashBase<'7a6ae714d7c679ec9e7f15d108460a31211ede25eb657bddfa99883ddba93d05'>;
 export type ExecutionHash =
   ExecutionHashBase<'b20b50d0e4a434a47dfc16260c9f4efdba6bfe8bcbf1b6e1ce18452098f48f39'>;
 export type ProfileHash =
@@ -241,7 +241,7 @@ export type FieldOutputTypes = {
       readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly keyHash: CodecTypes['pg/text@1']['output'];
-      readonly keyPrefix: Varchar<8>;
+      readonly keyPrefix: Varchar<16>;
       readonly lastUsedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly mode: 'test' | 'live';
       readonly name: CodecTypes['pg/text@1']['output'];
@@ -405,6 +405,8 @@ export type FieldOutputTypes = {
         | 'time_decay'
         | 'position_based';
       readonly deletedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly emailVerificationExpires: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly emailVerificationHash: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly industry: CodecTypes['pg/text@1']['output'] | null;
       readonly lookbackDays: CodecTypes['pg/int4@1']['output'];
@@ -596,6 +598,8 @@ export type FieldInputTypes = {
         | 'time_decay'
         | 'position_based';
       readonly deletedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly emailVerificationExpires: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly emailVerificationHash: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly industry: CodecTypes['pg/text@1']['input'] | null;
       readonly lookbackDays: CodecTypes['pg/int4@1']['input'];
@@ -623,7 +627,7 @@ export type StorageColumnTypes = {
       readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly keyHash: CodecTypes['pg/text@1']['output'];
-      readonly keyPrefix: Varchar<8>;
+      readonly keyPrefix: Varchar<16>;
       readonly lastUsedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly mode: 'test' | 'live';
       readonly name: CodecTypes['pg/text@1']['output'];
@@ -787,6 +791,8 @@ export type StorageColumnTypes = {
         | 'time_decay'
         | 'position_based';
       readonly deletedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly emailVerificationExpires: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly emailVerificationHash: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly industry: CodecTypes['pg/text@1']['output'] | null;
       readonly lookbackDays: CodecTypes['pg/int4@1']['output'];
@@ -978,6 +984,8 @@ export type StorageColumnInputTypes = {
         | 'time_decay'
         | 'position_based';
       readonly deletedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly emailVerificationExpires: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly emailVerificationHash: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly industry: CodecTypes['pg/text@1']['input'] | null;
       readonly lookbackDays: CodecTypes['pg/int4@1']['input'];
@@ -1005,7 +1013,7 @@ export namespace Models {
     expiresAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     id: CodecTypes['pg/text@1']['output'];
     keyHash: CodecTypes['pg/text@1']['output'];
-    keyPrefix: Varchar<8>;
+    keyPrefix: Varchar<16>;
     lastUsedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     mode: 'test' | 'live';
     name: CodecTypes['pg/text@1']['output'];
@@ -1196,6 +1204,8 @@ export namespace Models {
     defaultModel:
       'first_touch' | 'last_touch' | 'last_non_direct' | 'linear' | 'time_decay' | 'position_based';
     deletedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    emailVerificationExpires: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    emailVerificationHash: CodecTypes['pg/text@1']['output'] | null;
     id: CodecTypes['pg/text@1']['output'];
     industry: CodecTypes['pg/text@1']['output'] | null;
     lookbackDays: CodecTypes['pg/int4@1']['output'];
@@ -1314,7 +1324,7 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/varchar';
                   readonly codecId: 'sql/varchar@1';
                   readonly nullable: false;
-                  readonly typeParams: { readonly length: 8 };
+                  readonly typeParams: { readonly length: 16 };
                   readonly many: false;
                 };
                 readonly lastUsedAt: {
@@ -2552,6 +2562,18 @@ type ContractBase = Omit<
                   readonly nullable: true;
                   readonly many: false;
                 };
+                readonly emailVerificationExpires: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly emailVerificationHash: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly id: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
@@ -2814,7 +2836,7 @@ type ContractBase = Omit<
                 readonly type: {
                   readonly kind: 'scalar';
                   readonly codecId: 'sql/varchar@1';
-                  readonly typeParams: { readonly length: 8 };
+                  readonly typeParams: { readonly length: 16 };
                 };
               };
               readonly lastUsedAt: {
@@ -3924,6 +3946,17 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
+              readonly emailVerificationExpires: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly emailVerificationHash: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly id: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -4110,6 +4143,8 @@ type ContractBase = Omit<
                 readonly dataRegion: { readonly column: 'dataRegion' };
                 readonly defaultModel: { readonly column: 'defaultModel' };
                 readonly deletedAt: { readonly column: 'deletedAt' };
+                readonly emailVerificationExpires: { readonly column: 'emailVerificationExpires' };
+                readonly emailVerificationHash: { readonly column: 'emailVerificationHash' };
                 readonly id: { readonly column: 'id' };
                 readonly industry: { readonly column: 'industry' };
                 readonly lookbackDays: { readonly column: 'lookbackDays' };
