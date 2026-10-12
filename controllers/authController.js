@@ -258,13 +258,6 @@ export const forgotPass = async (req, res) => {
 
 export const userLogout = async (req, res) => {
   try {
-    res.cookie("user_token", "", {
-      expires: new Date(0),
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
-
     res.clearCookie("user_token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
