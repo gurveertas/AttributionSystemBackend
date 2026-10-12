@@ -258,9 +258,10 @@ export const forgotPass = async (req, res) => {
 
 export const userLogout = async (req, res) => {
   try {
-    res.clearCookie("user_token", {
+    res.cookie("user_token", "", {
+      expires: new Date(0),
       httpOnly: true,
-      secure: ENV.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
     });
 
@@ -273,4 +274,4 @@ export const userLogout = async (req, res) => {
       message: "Internal server error during logout",
     });
   }
-}
+};
