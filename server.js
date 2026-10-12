@@ -11,12 +11,26 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(express.json());
 app.use(cookieParser());
+const allowedOrigins = [
+  "https://asf-tas.vercel.app",
+  "https://asftas.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
 app.use(cors({
-  origin: "https://asf-tas.vercel.app",
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   credentials: true
 }));
 
 app.use('/api/auth', authRoutes);
+// app.use('/auth', authRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).json({message: "Home route"});
