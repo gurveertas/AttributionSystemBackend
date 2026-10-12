@@ -255,3 +255,22 @@ export const forgotPass = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const userLogout = async (req, res) => {
+  try {
+    res.clearCookie("user_token", {
+      httpOnly: true,
+      secure: ENV.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
+    return res.status(200).json({
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    console.error("Error in userLogout:", error);
+    return res.status(500).json({
+      message: "Internal server error during logout",
+    });
+  }
+}
