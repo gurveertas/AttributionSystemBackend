@@ -5,7 +5,6 @@ router.post('/company/register', registerCompany);
 router.post('/user/login', companyLogin);
 router.post('/verify-user', verifyUser);
 router.get('/verify-user', verifyUser);
-// router.post('/verify-user')
-// router.post('/user/forgotpass', forgotPass);
+router.post('/user/forgotpass', forgotPass);
 router.get('/me', sendMe);
 export default router;

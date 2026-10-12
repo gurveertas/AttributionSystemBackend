@@ -209,7 +209,7 @@ model ApiKey {
   name            String
   type            ApiKeyType
   mode            ApiKeyMode         @default(live)
-  keyPrefix       VarChar(8)
+  keyPrefix       VarChar(16)
   keyHash         String             @unique
   allowedOrigins  String[]
   rateLimitPerMin Int                @default(60)

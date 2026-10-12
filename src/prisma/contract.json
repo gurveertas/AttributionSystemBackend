@@ -335,7 +335,7 @@
                   "codecId": "sql/varchar@1",
                   "kind": "scalar",
                   "typeParams": {
-                    "length": 8
+                    "length": 16
                   }
                 }
               },
@@ -2559,7 +2559,7 @@
                   "dataType": "pg/varchar",
                   "nullable": false,
                   "typeParams": {
-                    "length": 8
+                    "length": 16
                   }
                 },
                 "lastUsedAt": {
@@ -4288,7 +4288,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "5f842a35985049139c87ea6a37485689fdbb7d2c7cb3267a000b2a74b862ffdb"
+    "storageHash": "7a6ae714d7c679ec9e7f15d108460a31211ede25eb657bddfa99883ddba93d05"
   },
   "execution": {
     "executionHash": "b20b50d0e4a434a47dfc16260c9f4efdba6bfe8bcbf1b6e1ce18452098f48f39",

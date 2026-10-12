@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'5f842a35985049139c87ea6a37485689fdbb7d2c7cb3267a000b2a74b862ffdb'>;
+  StorageHashBase<'7a6ae714d7c679ec9e7f15d108460a31211ede25eb657bddfa99883ddba93d05'>;
 export type ExecutionHash =
   ExecutionHashBase<'b20b50d0e4a434a47dfc16260c9f4efdba6bfe8bcbf1b6e1ce18452098f48f39'>;
 export type ProfileHash =
@@ -241,7 +241,7 @@ export type FieldOutputTypes = {
       readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly keyHash: CodecTypes['pg/text@1']['output'];
-      readonly keyPrefix: Varchar<8>;
+      readonly keyPrefix: Varchar<16>;
       readonly lastUsedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly mode: 'test' | 'live';
       readonly name: CodecTypes['pg/text@1']['output'];
@@ -627,7 +627,7 @@ export type StorageColumnTypes = {
       readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly keyHash: CodecTypes['pg/text@1']['output'];
-      readonly keyPrefix: Varchar<8>;
+      readonly keyPrefix: Varchar<16>;
       readonly lastUsedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly mode: 'test' | 'live';
       readonly name: CodecTypes['pg/text@1']['output'];
@@ -1013,7 +1013,7 @@ export namespace Models {
     expiresAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     id: CodecTypes['pg/text@1']['output'];
     keyHash: CodecTypes['pg/text@1']['output'];
-    keyPrefix: Varchar<8>;
+    keyPrefix: Varchar<16>;
     lastUsedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     mode: 'test' | 'live';
     name: CodecTypes['pg/text@1']['output'];
@@ -1324,7 +1324,7 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/varchar';
                   readonly codecId: 'sql/varchar@1';
                   readonly nullable: false;
-                  readonly typeParams: { readonly length: 8 };
+                  readonly typeParams: { readonly length: 16 };
                   readonly many: false;
                 };
                 readonly lastUsedAt: {
@@ -2836,7 +2836,7 @@ type ContractBase = Omit<
                 readonly type: {
                   readonly kind: 'scalar';
                   readonly codecId: 'sql/varchar@1';
-                  readonly typeParams: { readonly length: 8 };
+                  readonly typeParams: { readonly length: 16 };
                 };
               };
               readonly lastUsedAt: {
