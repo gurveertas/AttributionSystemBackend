@@ -9,6 +9,9 @@ import {
 import {protectRoute, requireRole} from '../middlewares/protectRoute.js'
 
 const router = express.Router();
+
+router.patch("/update-details", protectRoute, updateDetails);
+
 router.post('/', protectRoute, requireRole(['comapany_admin']), createApiKey);
 
 router.get('/', listApiKeys);

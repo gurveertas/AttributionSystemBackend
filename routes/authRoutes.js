@@ -6,6 +6,6 @@ router.post('/user/login', companyLogin);
 router.post('/verify-user', verifyUser);
 router.post('/user/forgotpass', forgotPass);
 router.get('/me', sendMe);
-router.post('/logout', userLogout)
+router.post('/logout', userLogout);
 
 export default router;
