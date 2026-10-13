@@ -8,7 +8,7 @@ import {
     updateSite,
     deleteSite,
     verifySite,
-} from "../controllers/siteController.js";
+} from "../controllers/siteContoller.js";
 
 const router = Router();
 
