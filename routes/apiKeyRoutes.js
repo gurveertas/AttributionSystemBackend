@@ -20,6 +20,6 @@ router.delete('/:id', protectRoute, revokeApiKey);
 
 router.post('/rotate',protectRoute, rotateApiKey);
 
-router.get("/companies/:companyId/api-keys", protectRoute, requireRole("platform_admin"), adminListApiKeys);
+// router.get("/companies/:companyId/api-keys", protectRoute, requireRole("platform_admin"), adminListApiKeys);
 
 export default router;
