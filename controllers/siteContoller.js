@@ -83,9 +83,9 @@ export const addSite = async (req, res) => {
             verificationMethod === "dns_txt"
                 ? { type: "TXT", host: `_attribution-verify.${bare}`, value: verificationToken }
                 : {
-                      tag: `<meta name="attribution-verify" content="${verificationToken}">`,
-                      where: "inside <head> on the home page",
-                  };
+                    tag: `<meta name="attribution-verify" content="${verificationToken}">`,
+                    where: "inside <head> on the home page",
+                };
 
         return res.status(201).json({
             id: site.id,
@@ -112,23 +112,23 @@ function requireCompanyAdmin(req, res) {
     }
     return workspaceId;
 }
- 
+
 // Always scoped by workspace: another company's site looks like "not found".
 const findSite = (workspaceId, id) =>
     db.orm.public.Site.where({ id, workspaceId }).first();
- 
+
 const bareDomain = (domain) => domain.replace(/^www\./, "");
- 
+
 function buildInstructions(site) {
     if (site.verifiedAt || !site.verificationToken) return null;
     return site.verificationMethod === "dns_txt"
         ? { type: "TXT", host: `${VERIFY_HOST_PREFIX}.${bareDomain(site.domain)}`, value: site.verificationToken }
         : {
-              tag: `<meta name="${META_NAME}" content="${site.verificationToken}">`,
-              where: "inside <head> on the home page",
-          };
+            tag: `<meta name="${META_NAME}" content="${site.verificationToken}">`,
+            where: "inside <head> on the home page",
+        };
 }
- 
+
 // verificationToken is only needed until the site is verified, so it is never sent after.
 function toPublic(site) {
     return {
@@ -141,7 +141,7 @@ function toPublic(site) {
         instructions: buildInstructions(site),
     };
 }
- 
+
 async function audit(client, req, workspaceId, action, targetId, metadata = null) {
     await client.orm.public.AuditLog.create({
         workspaceId,
@@ -155,7 +155,7 @@ async function audit(client, req, workspaceId, action, targetId, metadata = null
         userAgent: req.headers["user-agent"] ?? null,
     });
 }
- 
+
 // An origin like "https://book.glowsalon.com" is allowed only if its host is the site's
 // domain or a subdomain of it. This stops a company claiming origins it does not own.
 function normalizeOriginForSite(raw, domain) {
@@ -171,62 +171,62 @@ function normalizeOriginForSite(raw, domain) {
         return null;
     }
 }
- 
+
 // ---------------------------------------------------------------------------
 // GET /sites
 // ---------------------------------------------------------------------------
- 
+
 export const listSites = async (req, res) => {
     try {
         const workspaceId = requireCompanyAdmin(req, res);
         if (!workspaceId) return;
- 
+
         const sites = await db.orm.public.Site.where({ workspaceId }).all(); // .all() = your ORM's "fetch many"
         sites.sort((a, b) => String(a.domain).localeCompare(String(b.domain)));
- 
+
         return res.status(200).json({ data: sites.map(toPublic) });
     } catch (error) {
         console.error("listSites error:", error.message);
         return res.status(500).json({ message: "Internal server error while listing sites" });
     }
 };
- 
+
 // ---------------------------------------------------------------------------
 // GET /sites/:id
 // ---------------------------------------------------------------------------
- 
+
 export const getSite = async (req, res) => {
     try {
         const workspaceId = requireCompanyAdmin(req, res);
         if (!workspaceId) return;
- 
+
         const site = await findSite(workspaceId, req.params.id);
         if (!site) return res.status(404).json({ message: "Site not found" });
- 
+
         return res.status(200).json(toPublic(site));
     } catch (error) {
         console.error("getSite error:", error.message);
         return res.status(500).json({ message: "Internal server error while fetching site" });
     }
 };
- 
+
 // ---------------------------------------------------------------------------
 // PATCH /sites/:id
 // Body: { allowedOrigins?, verificationMethod? }
 // The domain cannot be changed. To use another domain, delete the site and add a new one.
 // ---------------------------------------------------------------------------
- 
+
 export const updateSite = async (req, res) => {
     try {
         const workspaceId = requireCompanyAdmin(req, res);
         if (!workspaceId) return;
- 
+
         const site = await findSite(workspaceId, req.params.id);
         if (!site) return res.status(404).json({ message: "Site not found" });
- 
+
         const { allowedOrigins, verificationMethod } = req.body ?? {};
         const changes = {};
- 
+
         if (allowedOrigins !== undefined) {
             if (!Array.isArray(allowedOrigins) || allowedOrigins.length === 0 || allowedOrigins.length > MAX_ORIGINS) {
                 return res.status(400).json({ message: `allowedOrigins must have 1-${MAX_ORIGINS} entries` });
@@ -239,7 +239,7 @@ export const updateSite = async (req, res) => {
             }
             changes.allowedOrigins = [...new Set(origins)];
         }
- 
+
         // Switching method restarts verification: new token, and the old proof no longer counts.
         if (verificationMethod !== undefined && verificationMethod !== site.verificationMethod) {
             if (!["dns_txt", "meta_tag"].includes(verificationMethod)) {
@@ -249,16 +249,16 @@ export const updateSite = async (req, res) => {
             changes.verificationToken = crypto.randomBytes(24).toString("hex");
             changes.verifiedAt = null;
         }
- 
+
         if (Object.keys(changes).length === 0) {
             return res.status(400).json({ message: "Nothing to update" });
         }
- 
+
         await db.transaction(async (tx) => {
             await tx.orm.public.Site.where({ id: site.id }).update(changes);
             await audit(tx, req, workspaceId, "site.updated", site.id, { fields: Object.keys(changes) });
         });
- 
+
         const updated = await findSite(workspaceId, site.id);
         return res.status(200).json(toPublic(updated));
     } catch (error) {
@@ -266,7 +266,7 @@ export const updateSite = async (req, res) => {
         return res.status(500).json({ message: "Internal server error while updating site" });
     }
 };
- 
+
 // ---------------------------------------------------------------------------
 // DELETE /sites/:id
 // ApiKey.siteId points at Site, so keys must be handled first. In ONE transaction we:
@@ -274,18 +274,18 @@ export const updateSite = async (req, res) => {
 //   2. detach all its keys (siteId = null) so the delete is allowed,
 //   3. delete the site.
 // ---------------------------------------------------------------------------
- 
+
 export const deleteSite = async (req, res) => {
     try {
         const workspaceId = requireCompanyAdmin(req, res);
         if (!workspaceId) return;
- 
+
         const site = await findSite(workspaceId, req.params.id);
         if (!site) return res.status(404).json({ message: "Site not found" });
- 
+
         const keys = await db.orm.public.ApiKey.where({ siteId: site.id, workspaceId }).all();
         const now = new Date().toISOString();
- 
+
         await db.transaction(async (tx) => {
             for (const key of keys) {
                 await tx.orm.public.ApiKey.where({ id: key.id }).update({
@@ -299,19 +299,19 @@ export const deleteSite = async (req, res) => {
                 keysRevoked: keys.filter((k) => !k.revokedAt).length,
             });
         });
- 
+
         return res.status(204).end();
     } catch (error) {
         console.error("deleteSite error:", error.message);
         return res.status(500).json({ message: "Internal server error while deleting site" });
     }
 };
- 
+
 // ---------------------------------------------------------------------------
 // POST /sites/:id/verify-domain
 // Checks that the company controls the domain, using the method chosen at creation.
 // ---------------------------------------------------------------------------
- 
+
 // The server fetches a URL the user influences, so block internal addresses (SSRF).
 function isPrivateIp(ip) {
     if (net.isIPv4(ip)) {
@@ -328,7 +328,7 @@ function isPrivateIp(ip) {
     return v6 === "::1" || v6 === "::" || v6.startsWith("fc") || v6.startsWith("fd") ||
         v6.startsWith("fe80") || v6.startsWith("::ffff:");
 }
- 
+
 async function checkDns(site) {
     const name = `${VERIFY_HOST_PREFIX}.${bareDomain(site.domain)}`;
     try {
@@ -338,7 +338,7 @@ async function checkDns(site) {
         return false; // no such record yet
     }
 }
- 
+
 async function fetchHome(host) {
     const addresses = await dns.lookup(host, { all: true });
     if (addresses.length === 0 || addresses.some((a) => isPrivateIp(a.address))) return null;
@@ -350,7 +350,7 @@ async function fetchHome(host) {
     if (!response.ok) return null;
     return (await response.text()).slice(0, 200000);
 }
- 
+
 async function checkMeta(site) {
     const bare = bareDomain(site.domain);
     // The home page often lives on either the apex or www, so try both.
@@ -367,18 +367,18 @@ async function checkMeta(site) {
     }
     return false;
 }
- 
+
 export const verifySite = async (req, res) => {
     try {
         const workspaceId = requireCompanyAdmin(req, res);
         if (!workspaceId) return;
- 
+
         const site = await findSite(workspaceId, req.params.id);
         if (!site) return res.status(404).json({ message: "Site not found" });
         if (site.verifiedAt) return res.status(200).json({ verified: true, message: "Already verified" });
- 
+
         const ok = site.verificationMethod === "dns_txt" ? await checkDns(site) : await checkMeta(site);
- 
+
         if (!ok) {
             return res.status(422).json({
                 verified: false,
@@ -389,16 +389,15 @@ export const verifySite = async (req, res) => {
                 instructions: buildInstructions(site),
             });
         }
- 
+
         await db.transaction(async (tx) => {
             await tx.orm.public.Site.where({ id: site.id }).update({ verifiedAt: new Date().toISOString() });
             await audit(tx, req, workspaceId, "site.verified", site.id, { method: site.verificationMethod });
         });
- 
+
         return res.status(200).json({ verified: true, message: "Domain verified" });
     } catch (error) {
         console.error("verifySite error:", error.message);
         return res.status(500).json({ message: "Internal server error while verifying site" });
     }
 };
- 

@@ -90,7 +90,13 @@ export const registerCompany = async (req, res) => {
                 role: "company_admin",
                 status: "active",
             });
-
+            const user = {
+                id : adminUser.id,
+                role : adminUser.role,
+                name : adminUser.name,
+                email : admin.email
+            }
+            genToken(user, res);
             return { workspace, adminUser };
         });
 
@@ -103,7 +109,6 @@ export const registerCompany = async (req, res) => {
         } catch (emailErr) {
             console.error("Failed to send verification email:", emailErr);
         }
-
         return res.status(201).json({
             message: "Company registered successfully. Verification email sent.",
             workspaceId: result.workspace.id,

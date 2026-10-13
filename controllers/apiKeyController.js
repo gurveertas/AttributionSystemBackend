@@ -322,3 +322,39 @@ export const rotateApiKey = async (req, res) => {
     return res.status(500).json({ message: "Internal server error while rotating API key" });
   }
 };
+
+export const adminListApiKeys = async (req, res) => {
+  try {
+    if (req.user?.role !== "platform_admin") {
+      return res.status(403).json({ message: "Platform admins only" });
+    }
+
+    const workspaceId = req.params.companyId;
+    const reason = String(req.query.reason ?? "").trim();
+    if (reason.length < 5) {
+      return res.status(400).json({ message: "A reason is required to view a company's keys" });
+    }
+
+    const workspace = await db.orm.public.Workspace.where({ id: workspaceId }).first();
+    if (!workspace) return res.status(404).json({ message: "Company not found" });
+
+    // Log the access first, so it is recorded even if the read fails afterwards
+    await db.orm.public.AuditLog.create({
+      workspaceId,
+      actorType: "platform_admin",
+      actorUserId: req.user.id,
+      action: "admin.viewed_api_keys",
+      targetType: "workspace",
+      targetId: workspaceId,
+      reason,
+      ip: req.ip ?? null,
+      userAgent: req.headers["user-agent"] ?? null,
+    });
+
+    const rows = await db.orm.public.ApiKey.where({ workspaceId }).all();
+    return res.status(200).json({ data: rows.map(toPublic) }); // prefix only, never the full key
+  } catch (error) {
+    console.error("adminListApiKeys error:", error.message);
+    return res.status(500).json({ message: "Internal server error while listing API keys" });
+  }
+};
