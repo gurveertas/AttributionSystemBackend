@@ -6,7 +6,7 @@ import { db } from './src/prisma/db.js';
 import authRoutes from './routes/authRoutes.js'
 import apiKeyRoutes from './routes/apiKeyRoutes.js'
 import userRoutes from './routes/userRoutes.js';
-import siteRoutes from './routes/'
+import siteRoutes from './routes/siteRoutes.js';
 import ENV from './utils/env.js'
 
 
