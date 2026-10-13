@@ -46,6 +46,7 @@ function normalizeOrigin(raw, mode) {
 function parseOrigins(list, mode) {
   if (!Array.isArray(list) || list.length === 0 || list.length > MAX_ORIGINS)
     return { error: `allowedOrigins must have 1-${MAX_ORIGINS} entries` };
+  
   const origins = list.map((origin) => normalizeOrigin(origin, mode));
   if (origins.some((origin) => origin === null))
     return { error: "each origin must look like https://example.com (no path)" };
