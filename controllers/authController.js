@@ -94,7 +94,8 @@ export const registerCompany = async (req, res) => {
                 id : adminUser.id,
                 role : adminUser.role,
                 name : adminUser.name,
-                email : adminUser.email
+                email : adminUser.email,
+                workspaceId : workspace.id,
             }
             genToken(user, res);
             return { workspace, adminUser };
