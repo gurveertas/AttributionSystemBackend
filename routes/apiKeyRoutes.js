@@ -10,14 +10,14 @@ import {protectRoute, requireRole} from '../middlewares/protectRoute.js'
 
 const router = express.Router();
 
-router.post('/', protectRoute, requireRole(['comapany_admin']), createApiKey);
+router.post('/', protectRoute, createApiKey);
 
-router.get('/', listApiKeys);
+router.get('/', protectRoute, listApiKeys);
 
-router.patch('/:id', updateApiKey);
+router.patch('/:id', protectRoute, updateApiKey);
 
-router.delete('/:id', revokeApiKey);
+router.delete('/:id', protectRoute, revokeApiKey);
 
-router.post('/rotate', rotateApiKey);
+router.post('/rotate',protectRoute, rotateApiKey);
 
 export default router;

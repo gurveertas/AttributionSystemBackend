@@ -6,6 +6,7 @@ import { db } from './src/prisma/db.js';
 import authRoutes from './routes/authRoutes.js'
 import apiKeyRoutes from './routes/apiKeyRoutes.js'
 import userRoutes from './routes/userRoutes.js';
+import siteRoutes from './routes/'
 import ENV from './utils/env.js'
 
 
@@ -34,6 +35,7 @@ app.use(cors({
 app.use('/api/auth', authRoutes);
 app.use('/api/api-keys', apiKeyRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/sites', siteRoutes)
 // app.use('/auth', authRoutes);
 
 app.get('/', (req, res) => {
