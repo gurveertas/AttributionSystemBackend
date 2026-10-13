@@ -24,7 +24,6 @@ export const protectRoute = async (req, res, next) => {
       name: user.name,
       email: user.email,
     };
-
     return next();
   } catch (error) {
     console.error("protectRoute error:", error.message);
