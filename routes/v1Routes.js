@@ -38,6 +38,7 @@ import { createBooking, updateBooking, listBookings, listUpcomingBookings } from
 import { createRefund } from "../controllers/refundController.js";
 import { listCustomers, getCustomerJourney } from "../controllers/customerController.js";
 import {
+    getDashboardOverview,
     getSummaryReport,
     getChannelsReport,
     getCampaignsReport,
@@ -81,6 +82,7 @@ router.get("/bookings/upcoming", apiKeyAuth(["publishable", "secret"]), listUpco
 
 // ── Report endpoints ───────────────────────────────────────────────────────
 
+router.get("/reports/dashboard", apiKeyAuth(["publishable", "secret"]), getDashboardOverview);
 router.get("/reports/summary", apiKeyAuth(["publishable", "secret"]), getSummaryReport);
 router.get("/reports/channels", apiKeyAuth(["publishable", "secret"]), getChannelsReport);
 router.get("/reports/campaigns", apiKeyAuth(["publishable", "secret"]), getCampaignsReport);

@@ -168,17 +168,25 @@ export const listConnectorEvents = async (req, res) => {
         const connector = await orm().Connector.where({ id: req.params.id, workspaceId }).first();
         if (!connector) return res.status(404).json({ message: "Connector not found" });
 
-        let events = await orm().RawEvent.where({ connectorId: connector.id }).all();
-        events.sort((a, b) => String(b.receivedAt).localeCompare(String(a.receivedAt)));
-
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
-        const total = events.length;
+        const offset = (page - 1) * limit;
 
-        // Filter by status if provided
-        if (req.query.status) events = events.filter(e => e.status === req.query.status);
+        let query = orm().RawEvent.where((e) => e.connectorId.eq(connector.id));
+        if (req.query.status) {
+            query = query.where((e) => e.status.eq(req.query.status));
+        }
 
-        const data = events.slice((page - 1) * limit, page * limit).map(e => ({
+        const countResult = await query.aggregate((agg) => ({ total: agg.count() }));
+        const total = countResult?.total || 0;
+
+        const events = await query
+            .orderBy((e) => e.receivedAt.desc())
+            .limit(limit)
+            .offset(offset)
+            .all();
+
+        const data = events.map((e) => ({
             id: e.id,
             source: e.source,
             eventType: e.eventType,

@@ -13,6 +13,7 @@ import workspaceRoutes from './routes/workspaceRoutes.js';
 import platformAdminRoutes from './routes/platformAdminRoutes.js';
 import v1Routes from './routes/v1Routes.js';
 import connectorRoutes from './routes/connectorRoutes.js';
+import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -30,19 +31,30 @@ const allowedOrigins = [
     "http://localhost:5173",
 ];
 
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (server-to-server, curl, mobile apps)
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            // In production you may want to reject unknown origins.
-            // For now we allow all to avoid breaking connectors/webhooks.
-            callback(null, true);
-        }
-    },
-    credentials: true,
+// Dynamic CORS configuration:
+// 1. Server-to-server / curl / webhooks without Origin header are always permitted.
+// 2. /v1 (SDK tracking) and /api/connectors (inbound webhooks) allow browser / webhook origins;
+//    publishable keys enforce exact site domain match in apiKeyAuth.
+// 3. Admin / Dashboard / User API routes strictly require an origin from allowedOrigins.
+app.use(cors((req, callback) => {
+    const origin = req.header("Origin");
+
+    if (!origin) {
+        return callback(null, { origin: true, credentials: true });
+    }
+
+    if (req.path.startsWith("/v1") || req.path.startsWith("/api/connectors")) {
+        return callback(null, { origin: true, credentials: true });
+    }
+
+    if (allowedOrigins.includes(origin)) {
+        return callback(null, { origin: true, credentials: true });
+    }
+
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
 }));
+
+app.use(express.static('public'));
 
 // ── Dashboard / Auth / Admin routes (cookie-based auth) ────────────────────
 app.use('/api/auth', authRoutes);
@@ -59,11 +71,45 @@ app.use('/v1', v1Routes);
 app.use('/api/connectors', connectorRoutes);
 
 // ── Health check ───────────────────────────────────────────────────────────
-app.get('/', (req, res) => {
-    res.status(200).json({ message: "Attribution Platform API", version: "1.0.0" });
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: "healthy", message: "Attribution Platform API", version: "1.0.0" });
 });
 
-// ── Start ──────────────────────────────────────────────────────────────────
-app.listen(ENV.PORT, '0.0.0.0', () => {
+app.get('/', (req, res, next) => {
+    // If request asks for json or has no html acceptor, return json
+    if (!req.accepts('html')) {
+        return res.status(200).json({ status: "healthy", message: "Attribution Platform API", version: "1.0.0" });
+    }
+    next();
+});
+
+// ── Centralized Error Handler (must be mounted after all routes) ───────────
+app.use(errorHandler);
+
+// ── Server Start & Graceful Shutdown ───────────────────────────────────────
+const server = app.listen(ENV.PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${ENV.PORT}`);
 });
+
+const handleShutdown = async (signal) => {
+    console.log(`Received ${signal}. Draining connections and shutting down gracefully...`);
+    server.close(async () => {
+        console.log("HTTP server closed.");
+        try {
+            await db.close();
+            console.log("Database connection pool closed successfully.");
+        } catch (dbErr) {
+            console.error("Error closing database pool:", dbErr.message);
+        }
+        process.exit(0);
+    });
+
+    // Force exit after 10s if graceful shutdown hangs
+    setTimeout(() => {
+        console.error("Forcefully terminating process after 10s timeout.");
+        process.exit(1);
+    }, 10000).unref();
+};
+
+process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+process.on("SIGINT", () => handleShutdown("SIGINT"));

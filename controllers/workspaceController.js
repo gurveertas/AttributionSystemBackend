@@ -11,6 +11,7 @@ import { db } from "../src/prisma/db.js";
 import crypto from "crypto";
 import { sendEmail } from "../services/emailServices.js";
 import bcrypt from "bcryptjs";
+import { encryptSecret } from "../utils/crypto.js";
 
 const orm = () => db.orm.public;
 
@@ -443,8 +444,8 @@ export const createWebhookEndpoint = async (req, res) => {
         try { new URL(url); } catch { return res.status(400).json({ message: "url is not a valid URL" }); }
 
         const signingSecret = crypto.randomBytes(32).toString("hex");
-        // In production, encrypt signingSecret before storing. Here we store plaintext as placeholder.
-        const signingSecretEnc = Buffer.from(signingSecret);
+        // Encrypt signing secret at rest with AES-256-GCM
+        const signingSecretEnc = encryptSecret(signingSecret);
 
         const hook = await orm().WebhookEndpoint.create({
             workspaceId,
@@ -505,15 +506,26 @@ export const deleteWebhookEndpoint = async (req, res) => {
 export const getAuditLog = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId;
-        let logs = await orm().AuditLog.where({ workspaceId }).all();
-        logs.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
-        const total = logs.length;
-        const data = logs.slice((page - 1) * limit, page * limit);
+        const offset = (page - 1) * limit;
 
-        return res.status(200).json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+        const countResult = await orm().AuditLog
+            .where({ workspaceId })
+            .aggregate((agg) => ({ total: agg.count() }));
+        const total = countResult?.total || 0;
+
+        const data = await orm().AuditLog
+            .where({ workspaceId })
+            .orderBy((l) => l.createdAt.desc())
+            .limit(limit)
+            .offset(offset)
+            .all();
+
+        return res.status(200).json({
+            data,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+        });
     } catch (error) {
         console.error("getAuditLog:", error.message);
         return res.status(500).json({ message: "Internal server error" });

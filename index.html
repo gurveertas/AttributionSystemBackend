@@ -161,7 +161,10 @@
             // Stable visitor ID stored in a cookie
             function getVisitorId() {
                 var match = document.cookie.match(/(?:^|; )aid_vid=([^;]+)/);
-                if (match) return decodeURIComponent(match[1]);
+                if (match){
+                    console.log('Is a match');
+                    return decodeURIComponent(match[1]);
+                }
                 var id = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
                 document.cookie = "aid_vid=" + encodeURIComponent(id) + "; max-age=63072000; path=/; SameSite=Lax";
                 return id;
@@ -188,20 +191,21 @@
             function shouldSendTouch(payload) {
                 var KEY = "aid_session";
                 var WINDOW_MS = 30 * 60 * 1000;
-                var signature = [payload.source, payload.medium, payload.campaign,
+                var signature = [payload.visitorId, payload.source, payload.medium, payload.campaign,
                 payload.gclid, payload.fbclid, payload.ttclid, payload.msclkid].join("|");
+                console.log(signature);
                 var last = null;
                 try { last = JSON.parse(sessionStorage.getItem(KEY)); } catch (e) { }
 
                 var isNewSession = !last || Date.now() - last.at > WINDOW_MS;
-                var campaignChanged = last && last.sig !== signature && signature !== "||||||";
+                var campaignChanged = last && last.sig !== signature && signature !== "|||||||";
 
                 if (!isNewSession && !campaignChanged) return false;
 
                 try { sessionStorage.setItem(KEY, JSON.stringify({ at: Date.now(), sig: signature })); } catch (e) { }
                 return true;
             }
-            if (shouldSendTouch) {
+            if (shouldSendTouch(payload)) {
                 const result = fetch(ENDPOINT, {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "authorization": `Bearer ${API_KEY}` },

@@ -13,28 +13,56 @@ import { db } from "../src/prisma/db.js";
 export const listCustomers = async (req, res) => {
     try {
         const workspaceId = req.workspaceId;
-        let customers = await db.orm.public.Customer.where({ workspaceId }).all();
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+        const offset = (page - 1) * limit;
 
-        // Filter out merged customers
-        customers = customers.filter(c => !c.mergedIntoId);
+        // Base query: only non-merged customers for this workspace
+        let query = db.orm.public.Customer
+            .where((c) => c.workspaceId.eq(workspaceId))
+            .where((c) => c.mergedIntoId.isNull());
 
-        // Search by external ID if provided
-        if (req.query.externalId && req.query.externalIdKey) {
-            customers = customers.filter(c => {
-                try {
-                    const ext = c.externalIds || {};
-                    return ext[req.query.externalIdKey] === req.query.externalId;
-                } catch { return false; }
+        // Fast-path: database-level pagination (avoids loading all customers into memory)
+        if (!req.query.externalId || !req.query.externalIdKey) {
+            const countResult = await query.aggregate((agg) => ({ total: agg.count() }));
+            const total = countResult?.total || 0;
+
+            const customers = await query
+                .orderBy((c) => c.firstSeenAt.desc())
+                .limit(limit)
+                .offset(offset)
+                .all();
+
+            const data = customers.map((c) => ({
+                id: c.id,
+                firstSeenAt: c.firstSeenAt,
+                firstPurchaseAt: c.firstPurchaseAt ?? null,
+                lastPurchaseAt: c.lastPurchaseAt ?? null,
+                externalIds: c.externalIds ?? null,
+            }));
+
+            return res.status(200).json({
+                data,
+                pagination: { page, limit, total, pages: Math.ceil(total / limit) },
             });
         }
 
+        // Filter by external ID JSON property if specified
+        let customers = await query.all();
+        const extKey = req.query.externalIdKey;
+        const extVal = req.query.externalId;
+        customers = customers.filter((c) => {
+            try {
+                const ext = c.externalIds || {};
+                return ext[extKey] === extVal;
+            } catch {
+                return false;
+            }
+        });
+
         customers.sort((a, b) => String(b.firstSeenAt).localeCompare(String(a.firstSeenAt)));
-
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
         const total = customers.length;
-
-        const data = customers.slice((page - 1) * limit, page * limit).map(c => ({
+        const data = customers.slice(offset, offset + limit).map((c) => ({
             id: c.id,
             firstSeenAt: c.firstSeenAt,
             firstPurchaseAt: c.firstPurchaseAt ?? null,
@@ -42,7 +70,10 @@ export const listCustomers = async (req, res) => {
             externalIds: c.externalIds ?? null,
         }));
 
-        return res.status(200).json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+        return res.status(200).json({
+            data,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+        });
     } catch (error) {
         console.error("listCustomers error:", error.message);
         return res.status(500).json({ message: "Internal server error" });
@@ -60,7 +91,7 @@ export const listCustomers = async (req, res) => {
  */
 export const getCustomerJourney = async (req, res) => {
     try {
-        const workspaceId = req.workspaceId;
+        const workspaceId = req.workspaceId || req.user?.workspaceId;
         const customer = await db.orm.public.Customer.where({ id: req.params.id, workspaceId }).first();
         if (!customer) return res.status(404).json({ message: "Customer not found" });
 

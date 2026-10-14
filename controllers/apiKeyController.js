@@ -19,11 +19,12 @@ async function fetchActiveKey(client, workspaceId) {
 
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
 
-function generateKey(mode) {
-  const key = `wk_${mode}_` + crypto.randomBytes(32).toString("base64url");
+function generateKey(mode, type = "publishable") {
+  const prefix = type === "secret" ? `sk_${mode}_` : `pk_${mode}_`;
+  const key = prefix + crypto.randomBytes(32).toString("base64url");
   return {
     key,
-    keyPrefix: key.slice(0, 12), // lets the UI tell keys apart; make the column VarChar(16)
+    keyPrefix: key.slice(0, 12), // lets the UI tell keys apart
     keyHash: sha256(key), // what we store and look up
   };
 }
@@ -72,6 +73,7 @@ function toPublic(row) {
   return {
     id: row.id,
     name: row.name,
+    type: row.type,
     mode: row.mode,
     keyPrefix: row.keyPrefix,
     siteId: row.siteId ?? null,
@@ -103,7 +105,7 @@ async function audit(client, req, workspaceId, action, targetId, metadata = null
 
 // ---------------------------------------------------------------------------
 // POST /api-keys
-// Body: { name, mode?: "live" | "test", allowedOrigins: [..], siteId? }
+// Body: { name, mode?: "live" | "test", type?: "publishable" | "secret", allowedOrigins: [..], siteId?, rateLimitPerMin? }
 // ---------------------------------------------------------------------------
 
 export const createApiKey = async (req, res) => {
@@ -111,18 +113,26 @@ export const createApiKey = async (req, res) => {
     const workspaceId = requireCompanyAdmin(req, res);
     if (!workspaceId) return;
 
-    const { name, mode = "live", allowedOrigins, siteId } = req.body ?? {};
+    const { name, mode = "live", type = "publishable", allowedOrigins, siteId, rateLimitPerMin = RATE_LIMIT_PER_MIN } = req.body ?? {};
 
     // 1. Validate the input
     if (!validName(name))
       return res.status(400).json({ message: "name is required (max 60 characters)" });
     if (!MODES.includes(mode))
       return res.status(400).json({ message: "mode must be test or live" });
+    const keyType = ["publishable", "secret"].includes(type) ? type : "publishable";
+
+    let originsList = [];
+    if (keyType === "publishable") {
+      const origins = parseOrigins(allowedOrigins, mode);
+      if (origins.error) return res.status(400).json({ message: origins.error });
+      originsList = origins.value;
+    } else if (Array.isArray(allowedOrigins)) {
+      originsList = allowedOrigins;
+    }
+
     if (siteId !== undefined && typeof siteId !== "string")
       return res.status(400).json({ message: "siteId must be a string" });
-
-    const origins = parseOrigins(allowedOrigins, mode);
-    if (origins.error) return res.status(400).json({ message: origins.error });
 
     // 2. If a site is given, it must belong to THIS workspace
     if (siteId) {
@@ -130,35 +140,36 @@ export const createApiKey = async (req, res) => {
       if (!site) return res.status(404).json({ message: "Site not found" });
     }
 
-    // 3. Enforce one active key per workspace
-    const existing = await fetchActiveKey(db, workspaceId);
+    // 3. Enforce one active key per type per workspace
+    const allKeys = await fetchWorkspaceKeys(db, workspaceId);
+    const existing = allKeys.find((row) => !row.revokedAt && row.type === keyType);
     if (existing)
       return res.status(409).json({
-        message: "This workspace already has an active API key. Rotate or revoke it first.",
+        message: `This workspace already has an active ${keyType} API key. Rotate or revoke it first.`,
       });
 
     // 4. Generate the key and save it with the audit entry, in one transaction
-    const { key, keyPrefix, keyHash } = generateKey(mode);
+    const { key, keyPrefix, keyHash } = generateKey(mode, keyType);
 
     const created = await db.transaction(async (tx) => {
       const row = await tx.orm.public.ApiKey.create({
         workspaceId,
         siteId: siteId ?? null,
         name: name.trim(),
-        type: KEY_TYPE,
+        type: keyType,
         mode,
         keyPrefix,
         keyHash,
-        allowedOrigins: origins.value,
-        rateLimitPerMin: RATE_LIMIT_PER_MIN,
+        allowedOrigins: originsList,
+        rateLimitPerMin: Number(rateLimitPerMin) || RATE_LIMIT_PER_MIN,
         createdBy: req.user.id,
       });
-      await audit(tx, req, workspaceId, "api_key.created", row.id, { mode });
+      await audit(tx, req, workspaceId, "api_key.created", row.id, { mode, type: keyType });
       return row;
     });
 
     // 5. The only moment the full key leaves the server
-    return res.status(201).json({ ...toPublic(created), key });
+    return res.status(201).json({ ...toPublic(created), key, apiKey: key });
   } catch (error) {
     // The partial unique index (one active key per workspace) catches double-clicks
     // that slip past the check in step 3.

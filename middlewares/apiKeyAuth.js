@@ -8,6 +8,7 @@
 
 import crypto from "crypto";
 import { db } from "../src/prisma/db.js";
+import { rateLimiter } from "./rateLimiter.js";
 
 const sha256 = (v) => crypto.createHash("sha256").update(v).digest("hex");
 const LAST_USED_INTERVAL_MS = 60_000; // don't write lastUsedAt on every request
@@ -67,7 +68,13 @@ export const apiKeyAuth =
             }
 
             req.workspaceId = key.workspaceId; // the ONLY source of the workspace on /v1 routes
-            req.apiKey = { id: key.id, type: key.type, mode: key.mode, siteId: key.siteId ?? null };
+            req.apiKey = {
+                id: key.id,
+                type: key.type,
+                mode: key.mode,
+                siteId: key.siteId ?? null,
+                rateLimitPerMin: key.rateLimitPerMin || 60,
+            };
 
             const last = key.lastUsedAt ? new Date(key.lastUsedAt).getTime() : 0;
             if (Date.now() - last > LAST_USED_INTERVAL_MS) {
@@ -82,7 +89,7 @@ export const apiKeyAuth =
                 })();
             }
 
-            return next();
+            return rateLimiter(req, res, next);
         } catch (error) {
             console.error("apiKeyAuth error:", error.message);
             return res.status(500).json({ message: "Internal server error in key check" });

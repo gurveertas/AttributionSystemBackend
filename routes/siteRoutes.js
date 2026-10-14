@@ -21,5 +21,6 @@ router.get("/:id", protectRoute, getSite);
 router.patch("/:id", protectRoute, updateSite);
 router.delete("/:id", protectRoute, deleteSite);
 router.post("/:id/verify-domain", protectRoute, verifySite);
+router.post("/:id/verify", protectRoute, verifySite);
 
 export default router;

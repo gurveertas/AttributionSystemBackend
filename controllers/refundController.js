@@ -16,6 +16,7 @@
  */
 
 import { db } from "../src/prisma/db.js";
+import { dispatchWebhook } from "../services/webhookDispatcher.js";
 
 const toMinorUnits = (amount) => BigInt(Math.round(Number(amount) * 100));
 
@@ -88,6 +89,17 @@ export const createRefund = async (req, res) => {
             });
 
             return refund;
+        });
+
+        // Dispatch outbound webhook (fire-and-forget)
+        dispatchWebhook(workspaceId, "refund.created", {
+            refundId: result.id,
+            orderId: order.id,
+            externalOrderId: order.externalId,
+            amountMinorUnits: result.amountMinorUnits?.toString(),
+            currency: result.currency,
+            orderStatus: newStatus,
+            refundedAt: result.refundedAt,
         });
 
         return res.status(201).json({

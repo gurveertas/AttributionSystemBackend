@@ -146,7 +146,7 @@ Validates the token sent in the confirmation email and activates the workspace.
   ```
 
 ### 3.4 Forgot Password
-Initiates password reset flow.
+Initiates password reset flow by emailing a cryptographically signed 1-hour reset link.
 * **Method:** `POST`
 * **Endpoint:** `/api/auth/user/forgotpass`
 * **Auth:** None (Public)
@@ -163,7 +163,32 @@ Initiates password reset flow.
   }
   ```
 
-### 3.5 Get Current User (Session Check)
+### 3.5 Reset Password
+Completes the password reset flow using the token from the email link.
+* **Method:** `POST`
+* **Endpoint:** `/api/auth/reset-password` *(or `/api/auth/user/reset-password`)*
+* **Auth:** None (Public)
+* **Request Body:**
+  ```json
+  {
+    "token": "signed_jwt_reset_token",
+    "newPassword": "NewStrongPassword123!"
+  }
+  ```
+* **Response `200 OK`:**
+  ```json
+  {
+    "message": "Password has been reset successfully. You can now log in with your new password."
+  }
+  ```
+* **Error `400 Bad Request`:**
+  ```json
+  {
+    "message": "Reset token has expired or is invalid"
+  }
+  ```
+
+### 3.6 Get Current User (Session Check)
 Decodes the active JWT cookie and returns authenticated user info.
 * **Method:** `GET`
 * **Endpoint:** `/api/auth/me`
@@ -766,13 +791,81 @@ Returns fractional credits for an order under each attribution model.
 
 ---
 
-## 9. Analytics & Reporting APIs (`/v1/reports`)
+## 9. Analytics & Reporting APIs (`/v1/reports` & `/api/workspace/reports`)
 *All report endpoints accept query parameters:*  
-`from` (ISO date), `to` (ISO date), `model` (default: `last_non_direct`), `locationId` (optional), `tz` (default: `UTC`).
+`from` (ISO date), `to` (ISO date), `model` (default: `last_non_direct`), `locationId` (optional), `tz` (default: `UTC`).  
+*Can be authenticated either with API Keys (`/v1/reports/*`) or with User Session Cookie (`/api/workspace/reports/*` & `/api/workspace/dashboard`).*
 
-### 9.1 Summary Overview Report
+### 9.1 Executive Dashboard Overview (Elysium UI)
+Tailored all-in-one endpoint returning the exact data structures rendered on the **Elysium Revenue Management Dashboard**:
 * **Method:** `GET`
-* **Endpoint:** `/v1/reports/summary`
+* **Endpoint:** `/api/workspace/dashboard` *(or `/v1/reports/dashboard`)*
+* **Auth:** Cookie (`user_token`) or API Key
+* **Response `200 OK`:**
+  ```json
+  {
+    "period": { "from": "2026-09-14T00:00:00.000Z", "to": "2026-10-14T23:59:59.999Z" },
+    "currency": "USD",
+    "primaryRevenue": {
+      "totalRevenue": "49849.40",
+      "totalRevenueFormatted": "$49,849.40",
+      "exclTax": "34894.58",
+      "tax": "14954.82",
+      "invoicesCount": 144,
+      "description": "Company-wide revenue, all locations combined, across 144 invoices."
+    },
+    "kpis": {
+      "newCustomers": { "value": 383, "label": "company-wide" },
+      "returningCustomers": { "value": 74, "label": "company-wide" },
+      "retention": { "percentage": 50.3, "detail": "1659 of 3297, all-time" },
+      "trackedVisits": { "value": 2406, "label": "company-wide" }
+    },
+    "revenueCards": {
+      "adAttributed": {
+        "value": "6494.72",
+        "formatted": "$6,494.72",
+        "subtext": "Meta + Google + AWIN only"
+      },
+      "directOrganic": {
+        "value": "46221.31",
+        "formatted": "$46,221.31",
+        "subtext": "walk-ins & untracked"
+      },
+      "unattributed": {
+        "value": "0.00",
+        "formatted": "$0.00",
+        "subtext": "no conversion at all"
+      },
+      "refunded": {
+        "value": "127.32",
+        "formatted": "$-127.32",
+        "subtext": "3 refunds · all locations"
+      },
+      "avgOrderValue": {
+        "value": "64.65",
+        "formatted": "$64.65",
+        "changePercent": -18.1,
+        "trend": "down",
+        "subtext": "▼ 18.1% vs prior period"
+      }
+    },
+    "revenueBySource": [
+      { "source": "Google", "percentage": 95, "color": "#3b82f6", "revenue": "47356.93", "conversions": 91 },
+      { "source": "META", "percentage": 3, "color": "#a855f7", "revenue": "1495.48", "conversions": 7 },
+      { "source": "Direct", "percentage": 2, "color": "#22c55e", "revenue": "996.99", "conversions": 735 }
+    ],
+    "revenueByPlatform": [
+      { "platform": "Direct", "badge": "Direct", "conversions": 735, "revenue": "47585.16", "color": "#22c55e" },
+      { "platform": "Google", "badge": "Google", "conversions": 91, "revenue": "6542.63", "color": "#3b82f6" },
+      { "platform": "AWIN", "badge": "AWIN", "conversions": 8, "revenue": "276.03", "color": "#71717a" },
+      { "platform": "META", "badge": "META", "conversions": 7, "revenue": "296.03", "color": "#a855f7" }
+    ]
+  }
+  ```
+
+### 9.2 Summary Overview Report
+* **Method:** `GET`
+* **Endpoint:** `/v1/reports/summary` *(or `/api/workspace/reports/summary`)*
 * **Response `200 OK`:**
   ```json
   {

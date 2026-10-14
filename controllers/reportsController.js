@@ -1,6 +1,9 @@
 /**
  * Reports Controller  —  GET /v1/reports/*
  *
+ * High-performance reporting engine with database-level date filtering
+ * and batch-loading to eliminate N+1 queries.
+ *
  * All reports accept:
  *   from*          - ISO date start (e.g. "2026-01-01")
  *   to*            - ISO date end
@@ -25,13 +28,20 @@ function parseReportParams(req) {
     return { fromDate, toDate, model, locationId: locationId || null, tz: tz || "UTC" };
 }
 
-function inRange(dateStr, fromDate, toDate) {
-    const d = new Date(dateStr);
-    return d >= fromDate && d <= toDate;
-}
+/**
+ * Helper to build orders query with database-level filters
+ */
+function buildOrdersQuery(workspaceId, fromDate, toDate, locationId = null) {
+    let query = db.orm.public.Order
+        .where((o) => o.workspaceId.eq(workspaceId))
+        .where((o) => o.status.in(["paid", "partially_refunded"]))
+        .where((o) => o.orderedAt.gte(fromDate.toISOString()))
+        .where((o) => o.orderedAt.lte(toDate.toISOString()));
 
-function sumMinorUnits(arr, field) {
-    return arr.reduce((sum, o) => sum + BigInt(o[field] || 0n), 0n).toString();
+    if (locationId) {
+        query = query.where((o) => o.locationId.eq(locationId));
+    }
+    return query;
 }
 
 /**
@@ -45,16 +55,24 @@ export const getSummaryReport = async (req, res) => {
 
         const workspace = await db.orm.public.Workspace.where({ id: workspaceId }).first();
 
-        let orders = await db.orm.public.Order.where({ workspaceId }).all();
-        orders = orders.filter(o => o.status === "paid" && inRange(o.orderedAt, fromDate, toDate));
-        if (locationId) orders = orders.filter(o => o.locationId === locationId);
+        // Database-level filtered queries
+        const orders = await buildOrdersQuery(workspaceId, fromDate, toDate, locationId).all();
 
-        let refunds = await db.orm.public.Refund.where({ workspaceId }).all();
-        refunds = refunds.filter(r => inRange(r.refundedAt, fromDate, toDate));
+        const refunds = await db.orm.public.Refund
+            .where((r) => r.workspaceId.eq(workspaceId))
+            .where((r) => r.refundedAt.gte(fromDate.toISOString()))
+            .where((r) => r.refundedAt.lte(toDate.toISOString()))
+            .all();
 
-        let bookings = await db.orm.public.Booking.where({ workspaceId }).all();
-        bookings = bookings.filter(b => inRange(b.createdAt, fromDate, toDate));
-        if (locationId) bookings = bookings.filter(b => b.locationId === locationId);
+        let bookingQuery = db.orm.public.Booking
+            .where((b) => b.workspaceId.eq(workspaceId))
+            .where((b) => b.createdAt.gte(fromDate.toISOString()))
+            .where((b) => b.createdAt.lte(toDate.toISOString()));
+
+        if (locationId) {
+            bookingQuery = bookingQuery.where((b) => b.locationId.eq(locationId));
+        }
+        const bookings = await bookingQuery.all();
 
         // Revenue metrics
         const grossRevenue = orders.reduce((s, o) => s + BigInt(o.grossMinorUnits || 0n), 0n);
@@ -65,15 +83,16 @@ export const getSummaryReport = async (req, res) => {
         const orderCount = orders.length;
         const aov = orderCount > 0 ? (netRevenue / BigInt(orderCount)).toString() : "0";
 
-        const newCustomers = orders.filter(o => o.isNewCustomer).length;
-        const returningCustomers = orders.filter(o => !o.isNewCustomer).length;
+        const newCustomers = orders.filter((o) => o.isNewCustomer).length;
+        const returningCustomers = orders.filter((o) => !o.isNewCustomer).length;
 
-        // Attributed revenue (from credits under chosen model)
+        // Attributed revenue: batch query credits to avoid N+1 queries
         let totalCredited = 0n;
-        for (const order of orders) {
-            const credits = await db.orm.public.AttributionCredit.where({ orderId: order.id, model }).all();
-            const nonNull = credits.filter(c => c.touchId !== null);
-            totalCredited += nonNull.reduce((s, c) => s + BigInt(c.amountMinorUnits || 0n), 0n);
+        if (orders.length > 0) {
+            const orderIdSet = new Set(orders.map((o) => o.id));
+            const allCredits = await db.orm.public.AttributionCredit.where({ workspaceId, model }).all();
+            const relevantCredits = allCredits.filter((c) => c.orderId && orderIdSet.has(c.orderId) && c.touchId !== null);
+            totalCredited = relevantCredits.reduce((s, c) => s + BigInt(c.amountMinorUnits || 0n), 0n);
         }
 
         const attributionCoverage = netRevenue > 0n
@@ -81,8 +100,8 @@ export const getSummaryReport = async (req, res) => {
             : 0;
 
         // Booking metrics
-        const scheduledBookings = bookings.filter(b => ["scheduled", "confirmed"].includes(b.status)).length;
-        const cancelledBookings = bookings.filter(b => b.status === "cancelled").length;
+        const scheduledBookings = bookings.filter((b) => ["scheduled", "confirmed"].includes(b.status)).length;
+        const cancelledBookings = bookings.filter((b) => b.status === "cancelled").length;
         const bookedValue = bookings.reduce((s, b) => s + BigInt(b.bookedValueMinorUnits || 0n), 0n);
 
         return res.status(200).json({
@@ -130,15 +149,37 @@ export const getChannelsReport = async (req, res) => {
         const workspaceId = req.workspaceId;
         const { fromDate, toDate, model, locationId } = parseReportParams(req);
 
-        let orders = await db.orm.public.Order.where({ workspaceId }).all();
-        orders = orders.filter(o => o.status === "paid" && inRange(o.orderedAt, fromDate, toDate));
-        if (locationId) orders = orders.filter(o => o.locationId === locationId);
+        const orders = await buildOrdersQuery(workspaceId, fromDate, toDate, locationId).all();
+        if (orders.length === 0) {
+            return res.status(200).json({ period: { from: fromDate.toISOString(), to: toDate.toISOString() }, model, data: [] });
+        }
 
-        // For each order, get credits under the chosen model
+        const orderIdSet = new Set(orders.map((o) => o.id));
+        const allCredits = await db.orm.public.AttributionCredit.where({ workspaceId, model }).all();
+        const relevantCredits = allCredits.filter((c) => c.orderId && orderIdSet.has(c.orderId));
+
+        // Group credits by orderId
+        const creditsByOrder = new Map();
+        const touchIdsToFetch = new Set();
+        for (const c of relevantCredits) {
+            if (!creditsByOrder.has(c.orderId)) creditsByOrder.set(c.orderId, []);
+            creditsByOrder.get(c.orderId).push(c);
+            if (c.touchId) touchIdsToFetch.add(c.touchId);
+        }
+
+        // Batch load touches for channel lookup
+        const touchMap = new Map();
+        if (touchIdsToFetch.size > 0) {
+            const allTouches = await db.orm.public.Touch.where({ workspaceId }).all();
+            for (const t of allTouches) {
+                if (touchIdsToFetch.has(t.id)) touchMap.set(t.id, t);
+            }
+        }
+
         const channelMap = {};
 
         for (const order of orders) {
-            const credits = await db.orm.public.AttributionCredit.where({ orderId: order.id, model }).all();
+            const credits = creditsByOrder.get(order.id) || [];
             if (credits.length === 0) {
                 // Unattributed
                 const ch = "direct_unknown";
@@ -150,11 +191,9 @@ export const getChannelsReport = async (req, res) => {
             }
 
             for (const credit of credits) {
-                // Look up the touch to get channel
-                let ch = "direct_unknown";
-                if (credit.touchId) {
-                    const touch = await db.orm.public.Touch.where({ id: credit.touchId }).first();
-                    ch = touch?.channel || "direct";
+                let ch = "direct";
+                if (credit.touchId && touchMap.has(credit.touchId)) {
+                    ch = touchMap.get(credit.touchId).channel || "direct";
                 }
 
                 if (!channelMap[ch]) channelMap[ch] = { channel: ch, orders: 0, netMinorUnits: 0n, newCustomers: 0, returningCustomers: 0 };
@@ -164,7 +203,7 @@ export const getChannelsReport = async (req, res) => {
             }
         }
 
-        const data = Object.values(channelMap).map(c => ({
+        const data = Object.values(channelMap).map((c) => ({
             ...c,
             netMinorUnits: c.netMinorUnits.toString(),
         })).sort((a, b) => Number(BigInt(b.netMinorUnits) - BigInt(a.netMinorUnits)));
@@ -185,30 +224,45 @@ export const getCampaignsReport = async (req, res) => {
         const workspaceId = req.workspaceId;
         const { fromDate, toDate, model, locationId } = parseReportParams(req);
 
-        let orders = await db.orm.public.Order.where({ workspaceId }).all();
-        orders = orders.filter(o => o.status === "paid" && inRange(o.orderedAt, fromDate, toDate));
-        if (locationId) orders = orders.filter(o => o.locationId === locationId);
+        const orders = await buildOrdersQuery(workspaceId, fromDate, toDate, locationId).all();
+        if (orders.length === 0) {
+            return res.status(200).json({ period: { from: fromDate.toISOString(), to: toDate.toISOString() }, model, data: [] });
+        }
 
-        const campaignMap = {};
+        const orderIdSet = new Set(orders.map((o) => o.id));
+        const allCredits = await db.orm.public.AttributionCredit.where({ workspaceId, model }).all();
+        const relevantCredits = allCredits.filter((c) => c.orderId && orderIdSet.has(c.orderId));
 
-        for (const order of orders) {
-            const credits = await db.orm.public.AttributionCredit.where({ orderId: order.id, model }).all();
-            for (const credit of credits) {
-                let campaign = "(none)";
-                let channel = "direct";
-                if (credit.touchId) {
-                    const touch = await db.orm.public.Touch.where({ id: credit.touchId }).first();
-                    campaign = touch?.campaign || "(none)";
-                    channel = touch?.channel || "direct";
-                }
-                const key = `${channel}::${campaign}`;
-                if (!campaignMap[key]) campaignMap[key] = { channel, campaign, orders: 0, netMinorUnits: 0n };
-                campaignMap[key].orders++;
-                campaignMap[key].netMinorUnits += BigInt(credit.amountMinorUnits || 0n);
+        const touchIdsToFetch = new Set();
+        for (const c of relevantCredits) {
+            if (c.touchId) touchIdsToFetch.add(c.touchId);
+        }
+
+        const touchMap = new Map();
+        if (touchIdsToFetch.size > 0) {
+            const allTouches = await db.orm.public.Touch.where({ workspaceId }).all();
+            for (const t of allTouches) {
+                if (touchIdsToFetch.has(t.id)) touchMap.set(t.id, t);
             }
         }
 
-        const data = Object.values(campaignMap).map(c => ({
+        const campaignMap = {};
+
+        for (const credit of relevantCredits) {
+            let campaign = "(none)";
+            let channel = "direct";
+            if (credit.touchId && touchMap.has(credit.touchId)) {
+                const t = touchMap.get(credit.touchId);
+                campaign = t.campaign || "(none)";
+                channel = t.channel || "direct";
+            }
+            const key = `${channel}::${campaign}`;
+            if (!campaignMap[key]) campaignMap[key] = { channel, campaign, orders: 0, netMinorUnits: 0n };
+            campaignMap[key].orders++;
+            campaignMap[key].netMinorUnits += BigInt(credit.amountMinorUnits || 0n);
+        }
+
+        const data = Object.values(campaignMap).map((c) => ({
             ...c,
             netMinorUnits: c.netMinorUnits.toString(),
         })).sort((a, b) => Number(BigInt(b.netMinorUnits) - BigInt(a.netMinorUnits)));
@@ -227,35 +281,34 @@ export const getCampaignsReport = async (req, res) => {
 export const getLocationsReport = async (req, res) => {
     try {
         const workspaceId = req.workspaceId;
-        const { fromDate, toDate, model } = parseReportParams(req);
+        const { fromDate, toDate } = parseReportParams(req);
 
         const locations = await db.orm.public.Location.where({ workspaceId }).all();
-        let orders = await db.orm.public.Order.where({ workspaceId }).all();
-        orders = orders.filter(o => o.status === "paid" && inRange(o.orderedAt, fromDate, toDate));
+        const orders = await buildOrdersQuery(workspaceId, fromDate, toDate).all();
 
-        const data = locations.map(loc => {
-            const locOrders = orders.filter(o => o.locationId === loc.id);
+        const data = locations.map((loc) => {
+            const locOrders = orders.filter((o) => o.locationId === loc.id);
             const net = locOrders.reduce((s, o) => s + BigInt(o.netMinorUnits || 0n), 0n);
             return {
                 locationId: loc.id,
                 locationName: loc.name,
                 orders: locOrders.length,
                 netMinorUnits: net.toString(),
-                newCustomers: locOrders.filter(o => o.isNewCustomer).length,
-                returningCustomers: locOrders.filter(o => !o.isNewCustomer).length,
+                newCustomers: locOrders.filter((o) => o.isNewCustomer).length,
+                returningCustomers: locOrders.filter((o) => !o.isNewCustomer).length,
             };
         }).sort((a, b) => Number(BigInt(b.netMinorUnits) - BigInt(a.netMinorUnits)));
 
-        // Also include unassigned orders
-        const unassigned = orders.filter(o => !o.locationId);
+        // Include unassigned orders
+        const unassigned = orders.filter((o) => !o.locationId);
         if (unassigned.length > 0) {
             data.push({
                 locationId: null,
                 locationName: "(No location)",
                 orders: unassigned.length,
                 netMinorUnits: unassigned.reduce((s, o) => s + BigInt(o.netMinorUnits || 0n), 0n).toString(),
-                newCustomers: unassigned.filter(o => o.isNewCustomer).length,
-                returningCustomers: unassigned.filter(o => !o.isNewCustomer).length,
+                newCustomers: unassigned.filter((o) => o.isNewCustomer).length,
+                returningCustomers: unassigned.filter((o) => !o.isNewCustomer).length,
             });
         }
 
@@ -273,12 +326,10 @@ export const getLocationsReport = async (req, res) => {
 export const getTrendReport = async (req, res) => {
     try {
         const workspaceId = req.workspaceId;
-        const { fromDate, toDate, model, locationId } = parseReportParams(req);
+        const { fromDate, toDate, locationId } = parseReportParams(req);
         const tz = req.query.tz || "UTC";
 
-        let orders = await db.orm.public.Order.where({ workspaceId }).all();
-        orders = orders.filter(o => o.status === "paid" && inRange(o.orderedAt, fromDate, toDate));
-        if (locationId) orders = orders.filter(o => o.locationId === locationId);
+        const orders = await buildOrdersQuery(workspaceId, fromDate, toDate, locationId).all();
 
         // Group by day (ISO date string in specified timezone)
         const dayMap = {};
@@ -290,7 +341,7 @@ export const getTrendReport = async (req, res) => {
             if (order.isNewCustomer) dayMap[d].newCustomers++;
         }
 
-        const data = Object.values(dayMap).map(d => ({
+        const data = Object.values(dayMap).map((d) => ({
             ...d,
             netMinorUnits: d.netMinorUnits.toString(),
         })).sort((a, b) => a.date.localeCompare(b.date));
@@ -312,22 +363,26 @@ export const getCustomersReport = async (req, res) => {
         const { fromDate, toDate } = parseReportParams(req);
 
         const customers = await db.orm.public.Customer.where({ workspaceId }).all();
-        const newInPeriod = customers.filter(c => c.firstPurchaseAt && inRange(c.firstPurchaseAt, fromDate, toDate));
-        const returningInPeriod = customers.filter(c =>
+        const inRange = (d) => new Date(d) >= fromDate && new Date(d) <= toDate;
+
+        const newInPeriod = customers.filter((c) => c.firstPurchaseAt && inRange(c.firstPurchaseAt));
+        const returningInPeriod = customers.filter((c) =>
             c.firstPurchaseAt && new Date(c.firstPurchaseAt) < fromDate &&
-            c.lastPurchaseAt && inRange(c.lastPurchaseAt, fromDate, toDate)
+            c.lastPurchaseAt && inRange(c.lastPurchaseAt)
         );
 
         // Customers with 2+ orders = repeat customers
-        let orders = await db.orm.public.Order.where({ workspaceId }).all();
-        orders = orders.filter(o => o.status === "paid");
+        const orders = await db.orm.public.Order
+            .where((o) => o.workspaceId.eq(workspaceId))
+            .where((o) => o.status.eq("paid"))
+            .all();
 
         const ordersByCustomer = {};
         for (const o of orders) {
             if (!o.customerId) continue;
             ordersByCustomer[o.customerId] = (ordersByCustomer[o.customerId] || 0) + 1;
         }
-        const repeatCustomers = Object.values(ordersByCustomer).filter(count => count >= 2).length;
+        const repeatCustomers = Object.values(ordersByCustomer).filter((count) => count >= 2).length;
         const totalWithOrders = Object.keys(ordersByCustomer).length;
         const repeatRate = totalWithOrders > 0 ? Math.round((repeatCustomers / totalWithOrders) * 10000) / 100 : 0;
 
@@ -335,11 +390,256 @@ export const getCustomersReport = async (req, res) => {
             period: { from: fromDate.toISOString(), to: toDate.toISOString() },
             newCustomers: newInPeriod.length,
             returningCustomers: returningInPeriod.length,
-            totalCustomers: customers.filter(c => !c.mergedIntoId).length,
+            totalCustomers: customers.filter((c) => !c.mergedIntoId).length,
             repeatRate,
         });
     } catch (error) {
         console.error("getCustomersReport error:", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * GET /api/workspace/dashboard  |  GET /v1/reports/dashboard
+ * All-in-one executive dashboard endpoint tailored for the Elysium frontend layout:
+ *   - Primary Revenue (Total, Excl Tax, Tax, Invoices count)
+ *   - 4 Primary KPIs (New Customers, Returning, Retention rate, Tracked Visits)
+ *   - 4 Revenue Cards (Ad-Attributed, Direct/Organic, Unattributed, Refunded, AOV with % change)
+ *   - Revenue by Source (Google %, Direct %, Meta % horizontal bar)
+ *   - Revenue by Platform Table (Platform, Conversions, Revenue, badge colors)
+ */
+export const getDashboardOverview = async (req, res) => {
+    try {
+        const workspaceId = req.workspaceId || req.user?.workspaceId;
+        if (!workspaceId) return res.status(401).json({ message: "Workspace context required" });
+
+        const { fromDate, toDate, model, locationId } = parseReportParams(req);
+        const workspace = await db.orm.public.Workspace.where({ id: workspaceId }).first();
+
+        // 1. Current period orders
+        const orders = await buildOrdersQuery(workspaceId, fromDate, toDate, locationId).all();
+
+        // 2. Prior period orders for AOV comparison
+        const durationMs = toDate.getTime() - fromDate.getTime();
+        const priorFromDate = new Date(fromDate.getTime() - durationMs);
+        const priorToDate = new Date(fromDate.getTime() - 1);
+        const priorOrders = await buildOrdersQuery(workspaceId, priorFromDate, priorToDate, locationId).all();
+
+        // 3. Refunds in period
+        const refunds = await db.orm.public.Refund
+            .where((r) => r.workspaceId.eq(workspaceId))
+            .where((r) => r.refundedAt.gte(fromDate.toISOString()))
+            .where((r) => r.refundedAt.lte(toDate.toISOString()))
+            .all();
+
+        // 4. Tracked visits (touches in period)
+        const touchCountResult = await db.orm.public.Touch
+            .where((t) => t.workspaceId.eq(workspaceId))
+            .where((t) => t.touchedAt.gte(fromDate.toISOString()))
+            .where((t) => t.touchedAt.lte(toDate.toISOString()))
+            .aggregate((agg) => ({ total: agg.count() }));
+        const trackedVisits = touchCountResult?.total || 0;
+
+        // 5. Customer retention metrics
+        const allCustomers = await db.orm.public.Customer
+            .where((c) => c.workspaceId.eq(workspaceId))
+            .where((c) => c.mergedIntoId.isNull())
+            .all();
+
+        const totalCustomersAllTime = allCustomers.length;
+        const retainedCustomersAllTime = allCustomers.filter(
+            (c) => c.firstPurchaseAt && c.lastPurchaseAt && c.firstPurchaseAt !== c.lastPurchaseAt
+        ).length;
+        const retentionRate = totalCustomersAllTime > 0
+            ? Math.round((retainedCustomersAllTime / totalCustomersAllTime) * 1000) / 10
+            : 0;
+
+        // Orders breakdown
+        const invoicesCount = orders.length;
+        const grossMinor = orders.reduce((s, o) => s + BigInt(o.grossMinorUnits || 0n), 0n);
+        const taxMinor = orders.reduce((s, o) => s + BigInt(o.taxMinorUnits || 0n), 0n);
+        const discountMinor = orders.reduce((s, o) => s + BigInt(o.discountMinorUnits || 0n), 0n);
+        const exclTaxMinor = grossMinor - taxMinor;
+        const refundMinor = refunds.reduce((s, r) => s + BigInt(r.amountMinorUnits || 0n), 0n);
+        const netMinor = grossMinor - discountMinor - refundMinor;
+
+        const newCustomers = orders.filter((o) => o.isNewCustomer).length;
+        const returningCustomers = orders.filter((o) => !o.isNewCustomer).length;
+
+        // Average Order Value
+        const aovMinor = invoicesCount > 0 ? Number(netMinor) / invoicesCount : 0;
+        const aov = (aovMinor / 100).toFixed(2);
+
+        // Prior AOV & change percentage
+        const priorGross = priorOrders.reduce((s, o) => s + BigInt(o.grossMinorUnits || 0n), 0n);
+        const priorDiscounts = priorOrders.reduce((s, o) => s + BigInt(o.discountMinorUnits || 0n), 0n);
+        const priorNet = priorGross - priorDiscounts;
+        const priorAovMinor = priorOrders.length > 0 ? Number(priorNet) / priorOrders.length : 0;
+        const aovChangePercent = priorAovMinor > 0
+            ? Math.round(((aovMinor - priorAovMinor) / priorAovMinor) * 1000) / 10
+            : 0;
+
+        // 6. Attribution breakdown across platforms (Meta, Google, Direct, AWIN, etc.)
+        const orderIdSet = new Set(orders.map((o) => o.id));
+        const allCredits = await db.orm.public.AttributionCredit.where({ workspaceId, model }).all();
+        const relevantCredits = allCredits.filter((c) => c.orderId && orderIdSet.has(c.orderId));
+
+        const touchIdsToFetch = new Set(relevantCredits.filter((c) => c.touchId).map((c) => c.touchId));
+        const touchMap = new Map();
+        if (touchIdsToFetch.size > 0) {
+            const touches = await db.orm.public.Touch.where({ workspaceId }).all();
+            for (const t of touches) {
+                if (touchIdsToFetch.has(t.id)) touchMap.set(t.id, t);
+            }
+        }
+
+        const platformMap = {
+            Direct: { platform: "Direct", conversions: 0, revenueMinorUnits: 0n, color: "#22c55e", badge: "Direct" },
+            Google: { platform: "Google", conversions: 0, revenueMinorUnits: 0n, color: "#3b82f6", badge: "Google" },
+            AWIN: { platform: "AWIN", conversions: 0, revenueMinorUnits: 0n, color: "#71717a", badge: "AWIN" },
+            META: { platform: "META", conversions: 0, revenueMinorUnits: 0n, color: "#a855f7", badge: "META" },
+        };
+
+        const creditsByOrder = new Map();
+        for (const c of relevantCredits) {
+            if (!creditsByOrder.has(c.orderId)) creditsByOrder.set(c.orderId, []);
+            creditsByOrder.get(c.orderId).push(c);
+        }
+
+        let adAttributedMinor = 0n;
+        let directOrganicMinor = 0n;
+        let unattributedMinor = 0n;
+
+        for (const order of orders) {
+            const credits = creditsByOrder.get(order.id) || [];
+            if (credits.length === 0) {
+                platformMap.Direct.conversions++;
+                platformMap.Direct.revenueMinorUnits += BigInt(order.netMinorUnits || 0n);
+                directOrganicMinor += BigInt(order.netMinorUnits || 0n);
+                continue;
+            }
+
+            for (const c of credits) {
+                let platformKey = "Direct";
+                if (c.touchId && touchMap.has(c.touchId)) {
+                    const t = touchMap.get(c.touchId);
+                    const ch = (t.channel || "").toLowerCase();
+                    const src = (t.source || "").toLowerCase();
+                    if (src.includes("google") || ch.includes("google") || ch === "paid_search") {
+                        platformKey = "Google";
+                    } else if (src.includes("meta") || src.includes("facebook") || src.includes("instagram") || ch.includes("meta") || ch === "paid_social") {
+                        platformKey = "META";
+                    } else if (src.includes("awin") || ch.includes("affiliate")) {
+                        platformKey = "AWIN";
+                    } else if (ch === "direct" || ch === "organic" || src === "direct") {
+                        platformKey = "Direct";
+                    } else {
+                        platformKey = t.source || t.channel || "Direct";
+                    }
+                }
+
+                if (!platformMap[platformKey]) {
+                    platformMap[platformKey] = {
+                        platform: platformKey,
+                        conversions: 0,
+                        revenueMinorUnits: 0n,
+                        color: "#6366f1",
+                        badge: platformKey,
+                    };
+                }
+
+                const amt = BigInt(c.amountMinorUnits || 0n);
+                platformMap[platformKey].conversions++;
+                platformMap[platformKey].revenueMinorUnits += amt;
+
+                if (["Google", "META", "AWIN"].includes(platformKey) || platformKey.toLowerCase().includes("ad")) {
+                    adAttributedMinor += amt;
+                } else {
+                    directOrganicMinor += amt;
+                }
+            }
+        }
+
+        // Percentage breakdown for top stacked bar
+        const totalPlatformRevenue = Object.values(platformMap).reduce((s, p) => s + p.revenueMinorUnits, 0n);
+        const revenueBySource = Object.values(platformMap)
+            .filter((p) => p.conversions > 0 || p.revenueMinorUnits > 0n)
+            .map((p) => ({
+                source: p.platform,
+                percentage: totalPlatformRevenue > 0n ? Math.round((Number(p.revenueMinorUnits) / Number(totalPlatformRevenue)) * 100) : 0,
+                color: p.color,
+                revenue: (Number(p.revenueMinorUnits) / 100).toFixed(2),
+                conversions: p.conversions,
+            }))
+            .sort((a, b) => b.percentage - a.percentage);
+
+        // Platform table rows
+        const revenueByPlatform = Object.values(platformMap)
+            .filter((p) => p.conversions > 0 || p.revenueMinorUnits > 0n)
+            .map((p) => ({
+                platform: p.platform,
+                badge: p.badge,
+                conversions: p.conversions,
+                revenue: (Number(p.revenueMinorUnits) / 100).toFixed(2),
+                revenueMinorUnits: p.revenueMinorUnits.toString(),
+                color: p.color,
+            }))
+            .sort((a, b) => Number(BigInt(b.revenueMinorUnits) - BigInt(a.revenueMinorUnits)));
+
+        return res.status(200).json({
+            period: { from: fromDate.toISOString(), to: toDate.toISOString() },
+            currency: workspace?.reportingCurrency || "USD",
+            primaryRevenue: {
+                totalRevenue: (Number(grossMinor) / 100).toFixed(2),
+                totalRevenueFormatted: `$${(Number(grossMinor) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                exclTax: (Number(exclTaxMinor) / 100).toFixed(2),
+                tax: (Number(taxMinor) / 100).toFixed(2),
+                invoicesCount,
+                description: `Company-wide revenue, all locations combined, across ${invoicesCount} invoices.`,
+            },
+            kpis: {
+                newCustomers: { value: newCustomers, label: "company-wide" },
+                returningCustomers: { value: returningCustomers, label: "company-wide" },
+                retention: {
+                    percentage: retentionRate,
+                    detail: `${retainedCustomersAllTime} of ${totalCustomersAllTime}, all-time`,
+                },
+                trackedVisits: { value: trackedVisits, label: "company-wide" },
+            },
+            revenueCards: {
+                adAttributed: {
+                    value: (Number(adAttributedMinor) / 100).toFixed(2),
+                    formatted: `$${(Number(adAttributedMinor) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    subtext: "Meta + Google + AWIN only",
+                },
+                directOrganic: {
+                    value: (Number(directOrganicMinor) / 100).toFixed(2),
+                    formatted: `$${(Number(directOrganicMinor) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    subtext: "walk-ins & untracked",
+                },
+                unattributed: {
+                    value: (Number(unattributedMinor) / 100).toFixed(2),
+                    formatted: `$${(Number(unattributedMinor) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    subtext: "no conversion at all",
+                },
+                refunded: {
+                    value: (Number(refundMinor) / 100).toFixed(2),
+                    formatted: `$-${(Number(refundMinor) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    subtext: `${refunds.length} refunds · all locations`,
+                },
+                avgOrderValue: {
+                    value: aov,
+                    formatted: `$${Number(aov).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    changePercent: aovChangePercent,
+                    trend: aovChangePercent >= 0 ? "up" : "down",
+                    subtext: `${aovChangePercent >= 0 ? '▲' : '▼'} ${Math.abs(aovChangePercent)}% vs prior period`,
+                },
+            },
+            revenueBySource,
+            revenueByPlatform,
+        });
+    } catch (error) {
+        console.error("getDashboardOverview error:", error.message);
         return res.status(500).json({ message: "Internal server error" });
     }
 };

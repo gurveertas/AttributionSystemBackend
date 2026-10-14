@@ -379,7 +379,9 @@ export const verifySite = async (req, res) => {
         if (!site) return res.status(404).json({ message: "Site not found" });
         if (site.verifiedAt) return res.status(200).json({ verified: true, message: "Already verified" });
 
-        const ok = site.verificationMethod === "dns_txt" ? await checkDns(site) : await checkMeta(site);
+        const isDev = process.env.NODE_ENV !== "production";
+        const isMock = isDev && (req.body?.mock === true || req.query?.mock === "true");
+        const ok = isMock || (site.verificationMethod === "dns_txt" ? await checkDns(site) : await checkMeta(site));
 
         if (!ok) {
             return res.status(422).json({
@@ -394,10 +396,10 @@ export const verifySite = async (req, res) => {
 
         await db.transaction(async (tx) => {
             await tx.orm.public.Site.where({ id: site.id }).update({ verifiedAt: new Date().toISOString() });
-            await audit(tx, req, workspaceId, "site.verified", site.id, { method: site.verificationMethod });
+            await audit(tx, req, workspaceId, "site.verified", site.id, { method: isMock ? "mock_simulation" : site.verificationMethod });
         });
 
-        return res.status(200).json({ verified: true, message: "Domain verified" });
+        return res.status(200).json({ verified: true, message: isMock ? "Domain verified via test simulation" : "Domain verified" });
     } catch (error) {
         console.error("verifySite error:", error.message);
         return res.status(500).json({ message: "Internal server error while verifying site" });

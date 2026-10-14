@@ -245,13 +245,39 @@ export const forgotPass = async (req, res) => {
         }).first();
 
         if (!user) {
-            // It's often good practice to return 200 even if the user isn't found to prevent email enumeration,
-            // but for development purposes, returning a 404 can be helpful.
             return res.status(404).json({ message: "User not found" });
         }
 
-        // TODO: Generate a reset token, save it to the database, and send an email to the user.
-        console.log(`Simulating password reset email sent to: ${normalizedEmail}`);
+        // Generate token tied to current passwordHash (auto-invalidates upon password change)
+        const secret = (ENV.JWT_SECRET || "default_jwt_secret") + user.passwordHash;
+        const resetToken = jwt.sign(
+            { userId: user.id, email: user.email, type: "password_reset" },
+            secret,
+            { expiresIn: "1h" }
+        );
+
+        const resetUrl = `https://asftas.vercel.app/reset-password?token=${resetToken}`;
+
+        const templatePath = path.join(process.cwd(), "templates", "passwordReset.html");
+        let htmlTemplate = "";
+        try {
+            htmlTemplate = fs.readFileSync(templatePath, "utf-8")
+                .replace(/\{\{name\}\}/g, user.name || "User")
+                .replace(/\{\{resetUrl\}\}/g, resetUrl);
+        } catch (readErr) {
+            console.error("Failed to read passwordReset.html template:", readErr.message);
+            htmlTemplate = `<p>Hi ${user.name},</p><p>Reset your password by visiting: <a href="${resetUrl}">${resetUrl}</a></p>`;
+        }
+
+        try {
+            await sendEmail({
+                to: normalizedEmail,
+                subject: "Reset Your Password",
+                html: htmlTemplate,
+            });
+        } catch (emailErr) {
+            console.error("Failed to send password reset email:", emailErr.message);
+        }
 
         return res.status(200).json({
             message: "Password reset instructions have been sent to your email.",
@@ -259,6 +285,50 @@ export const forgotPass = async (req, res) => {
     } catch (error) {
         console.error("Error in forgotPass:", error);
         return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        if (!token) {
+            return res.status(400).json({ message: "Reset token is required" });
+        }
+        if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters long" });
+        }
+
+        const decoded = jwt.decode(token);
+        if (!decoded || !decoded.userId || decoded.type !== "password_reset") {
+            return res.status(400).json({ message: "Invalid reset token" });
+        }
+
+        const user = await db.orm.public.User.where({ id: decoded.userId }).first();
+        if (!user) {
+            return res.status(400).json({ message: "Invalid or expired reset token" });
+        }
+
+        // Verify token with user's current passwordHash
+        const secret = (ENV.JWT_SECRET || "default_jwt_secret") + user.passwordHash;
+        try {
+            jwt.verify(token, secret);
+        } catch (verifyErr) {
+            return res.status(400).json({ message: "Reset token has expired or is invalid" });
+        }
+
+        const saltRounds = 10;
+        const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+        await db.orm.public.User.where({ id: user.id }).update({
+            passwordHash: newPasswordHash,
+        });
+
+        return res.status(200).json({
+            message: "Password has been reset successfully. You can now log in with your new password.",
+        });
+    } catch (error) {
+        console.error("Error in resetPassword:", error);
+        return res.status(500).json({ message: "Internal server error while resetting password" });
     }
 };
 

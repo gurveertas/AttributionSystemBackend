@@ -868,3 +868,7 @@ export const updatePlatformWebhook = async (req, res) => {
     });
   }
 };
+
+export const getApiFromWorkspace = async (req, res) => {
+  
+}

@@ -25,6 +25,7 @@
 import { db } from "../src/prisma/db.js";
 import { resolveOrCreateCustomer, getVisitorTouches, linkVisitorToCustomer, hashIdentifier } from "../services/identityService.js";
 import { filterTouches, buildCreditRows } from "../services/attributionEngine.js";
+import { dispatchWebhook } from "../services/webhookDispatcher.js";
 
 const toMinorUnits = (amount, decimals = 2) => BigInt(Math.round(Number(amount) * Math.pow(10, decimals)));
 
@@ -208,6 +209,20 @@ export const createOrder = async (req, res) => {
             return order;
         });
 
+        // Dispatch outbound webhook (fire-and-forget)
+        dispatchWebhook(workspaceId, "order.created", {
+            orderId: result.id,
+            externalId: result.externalId,
+            status: result.status,
+            grossMinorUnits: result.grossMinorUnits?.toString(),
+            netMinorUnits: result.netMinorUnits?.toString(),
+            currency: result.currency,
+            matchMethod,
+            isNewCustomer: customerIsNew,
+            touchCount: touches.length,
+            orderedAt: result.orderedAt,
+        });
+
         return res.status(201).json({
             id: result.id,
             externalId: result.externalId,
@@ -241,6 +256,13 @@ export const updateOrder = async (req, res) => {
 
         await db.orm.public.Order.where({ id: order.id }).update(changes);
 
+        // Dispatch outbound webhook
+        dispatchWebhook(workspaceId, "order.updated", {
+            orderId: order.id,
+            externalId: order.externalId,
+            ...changes,
+        });
+
         return res.status(200).json({ message: "Order updated" });
     } catch (error) {
         console.error("updateOrder error:", error.message);
@@ -254,21 +276,35 @@ export const updateOrder = async (req, res) => {
 export const listOrders = async (req, res) => {
     try {
         const workspaceId = req.workspaceId;
-        let orders = await db.orm.public.Order.where({ workspaceId }).all();
-
-        // Filters
-        if (req.query.status) orders = orders.filter(o => o.status === req.query.status);
-        if (req.query.locationId) orders = orders.filter(o => o.locationId === req.query.locationId);
-        if (req.query.from) orders = orders.filter(o => new Date(o.orderedAt) >= new Date(req.query.from));
-        if (req.query.to) orders = orders.filter(o => new Date(o.orderedAt) <= new Date(req.query.to));
-
-        orders.sort((a, b) => String(b.orderedAt).localeCompare(String(a.orderedAt)));
-
-        // Pagination
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
-        const total = orders.length;
-        const data = orders.slice((page - 1) * limit, page * limit).map(o => ({
+        const offset = (page - 1) * limit;
+
+        let query = db.orm.public.Order.where((o) => o.workspaceId.eq(workspaceId));
+
+        if (req.query.status) {
+            query = query.where((o) => o.status.eq(req.query.status));
+        }
+        if (req.query.locationId) {
+            query = query.where((o) => o.locationId.eq(req.query.locationId));
+        }
+        if (req.query.from) {
+            query = query.where((o) => o.orderedAt.gte(req.query.from));
+        }
+        if (req.query.to) {
+            query = query.where((o) => o.orderedAt.lte(req.query.to));
+        }
+
+        const countResult = await query.aggregate((agg) => ({ total: agg.count() }));
+        const total = countResult?.total || 0;
+
+        const orders = await query
+            .orderBy((o) => o.orderedAt.desc())
+            .limit(limit)
+            .offset(offset)
+            .all();
+
+        const data = orders.map((o) => ({
             id: o.id,
             externalId: o.externalId,
             status: o.status,
@@ -283,7 +319,10 @@ export const listOrders = async (req, res) => {
             createdAt: o.createdAt,
         }));
 
-        return res.status(200).json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+        return res.status(200).json({
+            data,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+        });
     } catch (error) {
         console.error("listOrders error:", error.message);
         return res.status(500).json({ message: "Internal server error while listing orders" });

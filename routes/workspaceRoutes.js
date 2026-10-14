@@ -28,6 +28,18 @@ import {
     deleteWebhookEndpoint,
     getAuditLog,
 } from "../controllers/workspaceController.js";
+import {
+    getDashboardOverview,
+    getSummaryReport,
+    getChannelsReport,
+    getCampaignsReport,
+    getLocationsReport,
+    getTrendReport,
+    getCustomersReport,
+} from "../controllers/reportsController.js";
+import { listCustomers, getCustomerJourney } from "../controllers/customerController.js";
+import { listOrders } from "../controllers/orderController.js";
+import { listBookings, listUpcomingBookings } from "../controllers/bookingController.js";
 
 const router = Router();
 
@@ -78,5 +90,27 @@ router.patch("/connectors/:id", protectRoute, requireRole("company_admin"), upda
 router.delete("/connectors/:id", protectRoute, requireRole("company_admin"), deleteConnector);
 router.get("/connectors/:id/events", protectRoute, requireRole("company_admin"), listConnectorEvents);
 router.post("/connectors/:id/events/:eventId/replay", protectRoute, requireRole("company_admin"), replayEvent);
+
+// ── Elysium Dashboard & Analytics (Cookie-Authenticated) ───────────────────
+router.get("/dashboard", protectRoute, requireRole("company_admin", "company_viewer"), getDashboardOverview);
+router.get("/reports/dashboard", protectRoute, requireRole("company_admin", "company_viewer"), getDashboardOverview);
+router.get("/reports/summary", protectRoute, requireRole("company_admin", "company_viewer"), getSummaryReport);
+router.get("/reports/channels", protectRoute, requireRole("company_admin", "company_viewer"), getChannelsReport);
+router.get("/reports/campaigns", protectRoute, requireRole("company_admin", "company_viewer"), getCampaignsReport);
+router.get("/reports/locations", protectRoute, requireRole("company_admin", "company_viewer"), getLocationsReport);
+router.get("/reports/trend", protectRoute, requireRole("company_admin", "company_viewer"), getTrendReport);
+router.get("/reports/customers", protectRoute, requireRole("company_admin", "company_viewer"), getCustomersReport);
+
+// ── Customers & Journeys ───────────────────────────────────────────────────
+router.get("/customers", protectRoute, requireRole("company_admin", "company_viewer"), listCustomers);
+router.get("/customers/:id/journey", protectRoute, requireRole("company_admin", "company_viewer"), getCustomerJourney);
+
+// ── Transactions / Orders ──────────────────────────────────────────────────
+router.get("/transactions", protectRoute, requireRole("company_admin", "company_viewer"), listOrders);
+router.get("/orders", protectRoute, requireRole("company_admin", "company_viewer"), listOrders);
+
+// ── Upcoming / Bookings ────────────────────────────────────────────────────
+router.get("/upcoming", protectRoute, requireRole("company_admin", "company_viewer"), listUpcomingBookings);
+router.get("/bookings", protectRoute, requireRole("company_admin", "company_viewer"), listBookings);
 
 export default router;

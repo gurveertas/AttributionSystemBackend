@@ -27,6 +27,7 @@
 import { db } from "../src/prisma/db.js";
 import { resolveOrCreateCustomer, getVisitorTouches, linkVisitorToCustomer } from "../services/identityService.js";
 import { filterTouches, buildCreditRows } from "../services/attributionEngine.js";
+import { dispatchWebhook } from "../services/webhookDispatcher.js";
 
 const toMinorUnits = (amount, decimals = 2) => BigInt(Math.round(Number(amount) * Math.pow(10, decimals)));
 
@@ -174,6 +175,21 @@ export const createBooking = async (req, res) => {
             return booking;
         });
 
+        // Dispatch outbound webhook (fire-and-forget)
+        dispatchWebhook(workspaceId, "booking.created", {
+            bookingId: result.id,
+            externalId: result.externalId,
+            status: result.status,
+            bookedValueMinorUnits: result.bookedValueMinorUnits?.toString(),
+            currency: result.currency,
+            serviceName: result.serviceName,
+            appointmentStartAt: result.appointmentStartAt,
+            matchMethod,
+            isNewCustomer: customerIsNew,
+            customerId: result.customerId,
+            locationId: result.locationId,
+        });
+
         return res.status(201).json({
             id: result.id,
             externalId: result.externalId,
@@ -212,6 +228,14 @@ export const updateBooking = async (req, res) => {
             });
         });
 
+        // Dispatch outbound webhook
+        dispatchWebhook(workspaceId, "booking.updated", {
+            bookingId: booking.id,
+            externalId: booking.externalId,
+            status,
+            reason: reason ?? null,
+        });
+
         return res.status(200).json({ message: "Booking updated", status });
     } catch (error) {
         console.error("updateBooking error:", error.message);
@@ -225,19 +249,35 @@ export const updateBooking = async (req, res) => {
 export const listBookings = async (req, res) => {
     try {
         const workspaceId = req.workspaceId;
-        let bookings = await db.orm.public.Booking.where({ workspaceId }).all();
-
-        if (req.query.status) bookings = bookings.filter(b => b.status === req.query.status);
-        if (req.query.locationId) bookings = bookings.filter(b => b.locationId === req.query.locationId);
-        if (req.query.from) bookings = bookings.filter(b => new Date(b.appointmentStartAt) >= new Date(req.query.from));
-        if (req.query.to) bookings = bookings.filter(b => new Date(b.appointmentStartAt) <= new Date(req.query.to));
-
-        bookings.sort((a, b) => String(b.appointmentStartAt).localeCompare(String(a.appointmentStartAt)));
-
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
-        const total = bookings.length;
-        const data = bookings.slice((page - 1) * limit, page * limit).map(b => ({
+        const offset = (page - 1) * limit;
+
+        let query = db.orm.public.Booking.where((b) => b.workspaceId.eq(workspaceId));
+
+        if (req.query.status) {
+            query = query.where((b) => b.status.eq(req.query.status));
+        }
+        if (req.query.locationId) {
+            query = query.where((b) => b.locationId.eq(req.query.locationId));
+        }
+        if (req.query.from) {
+            query = query.where((b) => b.appointmentStartAt.gte(req.query.from));
+        }
+        if (req.query.to) {
+            query = query.where((b) => b.appointmentStartAt.lte(req.query.to));
+        }
+
+        const countResult = await query.aggregate((agg) => ({ total: agg.count() }));
+        const total = countResult?.total || 0;
+
+        const bookings = await query
+            .orderBy((b) => b.appointmentStartAt.desc())
+            .limit(limit)
+            .offset(offset)
+            .all();
+
+        const data = bookings.map((b) => ({
             id: b.id,
             externalId: b.externalId,
             status: b.status,
@@ -252,7 +292,10 @@ export const listBookings = async (req, res) => {
             createdAt: b.createdAt,
         }));
 
-        return res.status(200).json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+        return res.status(200).json({
+            data,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+        });
     } catch (error) {
         console.error("listBookings error:", error.message);
         return res.status(500).json({ message: "Internal server error while listing bookings" });
