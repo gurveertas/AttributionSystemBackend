@@ -98,6 +98,27 @@ export const recordTouch = async (req, res) => {
 
         // Classify channel using UTMs / click IDs
         touchData.channel = classifyChannel(touchData, []);
+        const DEDUPE_MS = 30 * 60 * 1000;
+        const latest = await db.orm.public.Touch
+            .where({ workspaceId, visitorId: visitor.id })
+            .first();
+
+        const sameCampaign =
+            latest &&
+            latest.source === touchData.source &&
+            latest.medium === touchData.medium &&
+            latest.campaign === touchData.campaign &&
+            latest.gclid === touchData.gclid;
+
+        if (latest && sameCampaign && Date.now() - new Date(latest.touchedAt).getTime() < DEDUPE_MS) {
+            return res.status(200).json({
+                id: latest.id,
+                visitorId,
+                channel: latest.channel,
+                touchedAt: latest.touchedAt,
+                from: 'same campaign'
+            });
+        }
 
         const touch = await db.orm.public.Touch.create(touchData);
 

@@ -185,15 +185,37 @@
                 pageTitle: document.title
             };
             console.log(payload);
-            const result = fetch(ENDPOINT, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "authorization": `Bearer ${API_KEY}` },
-                body: JSON.stringify(payload),
-                keepalive: true
-            })
-                .then(response => response.json())
-                .then(data => console.log(data))
-                .catch(error => console.error(error));
+            function shouldSendTouch(payload) {
+                var KEY = "aid_session";
+                var WINDOW_MS = 30 * 60 * 1000;
+                var signature = [payload.source, payload.medium, payload.campaign,
+                payload.gclid, payload.fbclid, payload.ttclid, payload.msclkid].join("|");
+                var last = null;
+                try { last = JSON.parse(sessionStorage.getItem(KEY)); } catch (e) { }
+
+                var isNewSession = !last || Date.now() - last.at > WINDOW_MS;
+                var campaignChanged = last && last.sig !== signature && signature !== "||||||";
+
+                if (!isNewSession && !campaignChanged) return false;
+
+                try { sessionStorage.setItem(KEY, JSON.stringify({ at: Date.now(), sig: signature })); } catch (e) { }
+                return true;
+            }
+            if (shouldSendTouch) {
+                const result = fetch(ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "authorization": `Bearer ${API_KEY}` },
+                    body: JSON.stringify(payload),
+                    keepalive: true
+                })
+                    .then(response => response.json())
+                    .then(data => console.log(data))
+                    .catch(error => console.error(error));
+            }
+            else{
+                console.log("Should not send touch for now");
+            }
+
 
         })();
 
