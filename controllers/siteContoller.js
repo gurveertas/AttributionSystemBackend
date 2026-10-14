@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import dns from "dns/promises";
+import net from "net";
 import { db } from "../src/prisma/db.js";
 
 const MAX_SITES = 20;

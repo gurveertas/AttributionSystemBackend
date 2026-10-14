@@ -1,3 +1,12 @@
+/**
+ * User Controller — company profile updates
+ *
+ * PATCH /api/user/update-details
+ * Allows a company admin to update their workspace and/or their own profile name.
+ */
+
+import { db } from "../src/prisma/db.js";
+
 export const updateDetails = async (req, res) => {
     try {
         const {
@@ -122,62 +131,48 @@ export const updateDetails = async (req, res) => {
 
         // Update company information
         if (Object.keys(workspaceUpdates).length > 0) {
-            const { data, error } = await supabase
-                .from("Workspace")
-                .update(workspaceUpdates)
-                .eq("id", workspaceId)
-                .select(
-                    "id, name, slug, country, dataRegion, industry, timezone, reportingCurrency"
-                )
-                .maybeSingle();
-
-            if (error) {
+            try {
+                await db.orm.public.Workspace.where({ id: workspaceId }).update(workspaceUpdates);
+                workspace = await db.orm.public.Workspace.where({ id: workspaceId }).first();
+                if (!workspace) {
+                    return res.status(404).json({
+                        message: "Workspace not found",
+                    });
+                }
+                // Remove sensitive fields
+                const { emailVerificationHash, emailVerificationExpires, ...safe } = workspace;
+                workspace = safe;
+            } catch (error) {
                 console.error("Workspace update failed:", error);
-
-                return res.status(
-                    error.code === "23505" ? 409 : 500
-                ).json({
-                    message:
-                        error.code === "23505"
-                            ? "A unique constraint was violated"
-                            : "Failed to update company details",
+                if (error?.code === "23505") {
+                    return res.status(409).json({
+                        message: "A unique constraint was violated",
+                    });
+                }
+                return res.status(500).json({
+                    message: "Failed to update company details",
                 });
             }
-
-            if (!data) {
-                return res.status(404).json({
-                    message: "Workspace not found",
-                });
-            }
-
-            workspace = data;
         }
 
         // Update admin information
         if (adminName !== undefined) {
-            const { data, error } = await supabase
-                .from("User")
-                .update({ name: adminName.trim() })
-                .eq("id", userId)
-                .eq("workspaceId", workspaceId)
-                .select("id, name, email, role")
-                .maybeSingle();
-
-            if (error) {
+            try {
+                await db.orm.public.User.where({ id: userId, workspaceId }).update({ name: adminName.trim() });
+                const updatedUser = await db.orm.public.User.where({ id: userId }).first();
+                if (!updatedUser) {
+                    return res.status(404).json({
+                        message: "Admin user not found in this workspace",
+                    });
+                }
+                const { passwordHash, ...safeUser } = updatedUser;
+                user = safeUser;
+            } catch (error) {
                 console.error("Admin update failed:", error);
-
                 return res.status(500).json({
                     message: "Failed to update admin details",
                 });
             }
-
-            if (!data) {
-                return res.status(404).json({
-                    message: "Admin user not found in this workspace",
-                });
-            }
-
-            user = data;
         }
 
         return res.status(200).json({
