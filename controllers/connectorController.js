@@ -488,6 +488,7 @@ export const zenotiWebhook = async (req, res) => {
  * Headers: X-Razorpay-Signature
  */
 export const razorpayWebhook = async (req, res) => {
+    console.log("\n\n\n\n\n\n\n\nrazorpayWebhook received request:", req.method, req.path, req.query, "\n\n\n\n\n\n\n\n");
     const connectorId = req.query.connectorId;
     if (!connectorId) return res.status(400).json({ message: "connectorId required" });
 
