@@ -170,6 +170,7 @@ export const deleteConnector = async (req, res) => {
         return res.status(204).end();
     } catch (error) {
         return res.status(500).json({ message: "Internal server error" });
+        console.log("deleteConnector error:", error.message);
     }
 };
 
