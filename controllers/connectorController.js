@@ -488,22 +488,16 @@ export const zenotiWebhook = async (req, res) => {
  * Headers: X-Razorpay-Signature
  */
 export const razorpayWebhook = async (req, res) => {
-    console.log("\n\n\n\n\n\n\n\nrazorpayWebhook received request:", req.method, req.path, req.query, "\n\n\n\n\n\n\n\n");
     const connectorId = req.query.connectorId; //
-    console.log("razorpayWebhook connectorId:", connectorId);
     if (!connectorId) return res.status(400).json({ message: "connectorId required" });
 
     const connector = await lookupConnector(connectorId);
-    console.log("razorpayWebhook connector:", connector); //
     if (!connector) return res.status(404).json({ message: "Connector not found" });
     if (connector.type !== "razorpay") return res.status(400).json({ message: "Connector is not configured for Razorpay" });
 
     const workspaceId = connector.workspaceId;
-    console.log("razorpayWebhook workspaceId:", workspaceId); //
     const config = getConnectorConfig(connector);
-    console.log("razorpayWebhook config:", config); //
     const webhookSecret = config.webhookSecret;
-    console.log("razorpayWebhook webhookSecret:", webhookSecret); //
     if (!webhookSecret) {
         return res.status(500).json({ message: "Connector is missing webhookSecret in config" });
     }
@@ -517,7 +511,6 @@ export const razorpayWebhook = async (req, res) => {
     }
 
     const payload = req.body;
-    console.log("razorpayWebhook payload:", JSON.stringify(payload, null, 2));
     const eventType = payload?.event || "unknown";
     const rawEvent = await saveRawEvent(workspaceId, connectorId, "razorpay", eventType, payload);
     void orm().Connector.where({ id: connectorId }).update({ lastEventAt: new Date().toISOString() }).catch(() => {});
