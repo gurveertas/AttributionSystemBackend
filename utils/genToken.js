@@ -8,6 +8,7 @@ export const genToken = (user, res) => {
             role: user.role,
             name: user.name,
             email: user.email,
+            status: user.status,
             workspaceId: user.workspaceId ?? null,
         };
         const token = jwt.sign(payload, ENV.JWT_SECRET, { expiresIn: '7d' });
