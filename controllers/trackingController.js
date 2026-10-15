@@ -113,7 +113,10 @@ export const recordTouch = async (req, res) => {
         if (latest && sameCampaign && Date.now() - new Date(latest.touchedAt).getTime() < DEDUPE_MS) {
             return res.status(200).json({
                 id: latest.id,
+                touchId: latest.id,
                 visitorId,
+                visitorRecordId: visitor.id,
+                siteId: latest.siteId ?? null,
                 channel: latest.channel,
                 touchedAt: latest.touchedAt,
                 from: 'same campaign'
@@ -124,7 +127,10 @@ export const recordTouch = async (req, res) => {
 
         return res.status(201).json({
             id: touch.id,
+            touchId: touch.id,
             visitorId,
+            visitorRecordId: visitor.id,
+            siteId: touch.siteId ?? null,
             channel: touch.channel,
             touchedAt: touch.touchedAt,
         });
@@ -150,7 +156,7 @@ import { resolveOrCreateCustomer, linkVisitorToCustomer, hashIdentifier } from "
 export const identifyVisitor = async (req, res) => {
     try {
         const workspaceId = req.workspaceId;
-        const { visitorId, email, phone } = req.body ?? {};
+        const { visitorId, email, phone} = req.body ?? {};
 
         if (!visitorId) return res.status(400).json({ message: "visitorId is required" });
         if (!email && !phone) return res.status(400).json({ message: "email or phone is required" });
@@ -158,9 +164,17 @@ export const identifyVisitor = async (req, res) => {
         const { customer, isNew } = await resolveOrCreateCustomer(db, workspaceId, { email, phone });
 
         await linkVisitorToCustomer(db, workspaceId, visitorId, customer.id);
+        const visitor = await db.orm.public.Visitor.where({ workspaceId, visitorId }).first();
+        const touches = visitor
+            ? await db.orm.public.Touch.where({ visitorId: visitor.id }).all()
+            : [];
 
         return res.status(200).json({
             customerId: customer.id,
+            visitorId,
+            visitorRecordId: visitor?.id ?? null,
+            touchIds: touches.map((touch) => touch.id),
+            touchCount: touches.length,
             isNew,
         });
     } catch (error) {
@@ -216,7 +230,12 @@ export const createCheckoutSession = async (req, res) => {
         });
 
         return res.status(201).json({
+            checkoutSessionId: session.id,
             token: session.token,
+            visitorId,
+            visitorRecordId: visitor.id,
+            touchIds: frozenTouches.map((touch) => touch.id),
+            touchCount: frozenTouches.length,
             expiresAt: session.expiresAt,
         });
     } catch (error) {

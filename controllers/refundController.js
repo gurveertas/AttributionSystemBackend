@@ -50,7 +50,15 @@ export const createRefund = async (req, res) => {
         // Idempotency on externalId
         if (externalId) {
             const existingRefund = await db.orm.public.Refund.where({ workspaceId, externalId }).first();
-            if (existingRefund) return res.status(200).json({ id: existingRefund.id, status: "already_processed" });
+            if (existingRefund) return res.status(200).json({
+                id: existingRefund.id,
+                refundId: existingRefund.id,
+                orderId: existingRefund.orderId,
+                externalOrderId: order.externalId,
+                externalId: existingRefund.externalId,
+                orderStatus: order.status,
+                status: "already_processed",
+            });
         }
 
         const amountMinorUnits = toMinorUnits(amount);
@@ -104,7 +112,10 @@ export const createRefund = async (req, res) => {
 
         return res.status(201).json({
             id: result.id,
+            refundId: result.id,
             orderId: order.id,
+            externalOrderId: order.externalId,
+            externalId: result.externalId,
             amountMinorUnits: result.amountMinorUnits?.toString(),
             currency: result.currency,
             orderStatus: newStatus,

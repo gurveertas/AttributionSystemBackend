@@ -60,7 +60,31 @@ export const createBooking = async (req, res) => {
         // Idempotency check
         const existing = await db.orm.public.Booking.where({ workspaceId, externalId }).first();
         if (existing) {
-            return res.status(200).json({ id: existing.id, status: "already_processed" });
+            const [credits, session] = await Promise.all([
+                db.orm.public.AttributionCredit.where({ bookingId: existing.id }).all(),
+                existing.checkoutToken
+                    ? db.orm.public.CheckoutSession.where({ workspaceId, token: existing.checkoutToken }).first()
+                    : null,
+            ]);
+            const visitor = visitorId
+                ? await db.orm.public.Visitor.where({ workspaceId, visitorId }).first()
+                : session
+                    ? await db.orm.public.Visitor.where({ id: session.visitorId, workspaceId }).first()
+                    : null;
+            return res.status(200).json({
+                id: existing.id,
+                bookingId: existing.id,
+                externalId: existing.externalId,
+                customerId: existing.customerId,
+                visitorId: visitor?.visitorId ?? visitorId ?? null,
+                visitorRecordId: visitor?.id ?? null,
+                connectorId: existing.connectorId,
+                locationId: existing.locationId,
+                checkoutSessionId: session?.id ?? null,
+                touchIds: [...new Set(credits.map((credit) => credit.touchId).filter(Boolean))],
+                attributionCreditIds: credits.map((credit) => credit.id),
+                status: "already_processed",
+            });
         }
 
         const workspace = await db.orm.public.Workspace.where({ id: workspaceId }).first();
@@ -72,9 +96,20 @@ export const createBooking = async (req, res) => {
         // Touch resolution — same waterfall as orders
         let touches = [];
         let matchMethod = "none";
+        let checkoutSessionId = null;
+        let resolvedVisitor = visitorId
+            ? await db.orm.public.Visitor.where({ workspaceId, visitorId }).first()
+            : null;
 
         if (checkoutToken) {
             const session = await db.orm.public.CheckoutSession.where({ token: checkoutToken, workspaceId }).first();
+            checkoutSessionId = session?.id ?? null;
+            if (session && !resolvedVisitor) {
+                resolvedVisitor = await db.orm.public.Visitor.where({
+                    id: session.visitorId,
+                    workspaceId,
+                }).first();
+            }
             if (session && !session.consumedAt && new Date(session.expiresAt) > new Date()) {
                 const touchIds = (session.frozenTouches || []).map(t => t.id).filter(Boolean);
                 if (touchIds.length > 0) {
@@ -139,7 +174,7 @@ export const createBooking = async (req, res) => {
             });
 
             // Initial status history
-            await tx.orm.public.BookingStatusHistory.create({
+            const statusHistory = await tx.orm.public.BookingStatusHistory.create({
                 bookingId: booking.id,
                 status: "scheduled",
             });
@@ -148,6 +183,7 @@ export const createBooking = async (req, res) => {
             if (checkoutToken) {
                 const session = await tx.orm.public.CheckoutSession.where({ token: checkoutToken, workspaceId }).first();
                 if (session) {
+                    checkoutSessionId = session.id;
                     await tx.orm.public.CheckoutSession.where({ id: session.id }).update({
                         consumedAt: new Date().toISOString(),
                         consumedOrderId: booking.id, // reusing the field for bookings too
@@ -156,8 +192,11 @@ export const createBooking = async (req, res) => {
             }
 
             // Attribution credits
+            const attributionCredits = [];
             for (const row of creditRows) {
-                await tx.orm.public.AttributionCredit.create({ ...row, bookingId: booking.id, orderId: null });
+                attributionCredits.push(
+                    await tx.orm.public.AttributionCredit.create({ ...row, bookingId: booking.id, orderId: null })
+                );
             }
 
             await tx.orm.public.AuditLog.create({
@@ -172,28 +211,40 @@ export const createBooking = async (req, res) => {
                 userAgent: req.headers["user-agent"] ?? null,
             });
 
-            return booking;
+            return { booking, statusHistoryId: statusHistory.id, attributionCredits };
         });
+
+        const booking = result.booking;
 
         // Dispatch outbound webhook (fire-and-forget)
         dispatchWebhook(workspaceId, "booking.created", {
-            bookingId: result.id,
-            externalId: result.externalId,
-            status: result.status,
-            bookedValueMinorUnits: result.bookedValueMinorUnits?.toString(),
-            currency: result.currency,
-            serviceName: result.serviceName,
-            appointmentStartAt: result.appointmentStartAt,
+            bookingId: booking.id,
+            externalId: booking.externalId,
+            status: booking.status,
+            bookedValueMinorUnits: booking.bookedValueMinorUnits?.toString(),
+            currency: booking.currency,
+            serviceName: booking.serviceName,
+            appointmentStartAt: booking.appointmentStartAt,
             matchMethod,
             isNewCustomer: customerIsNew,
-            customerId: result.customerId,
-            locationId: result.locationId,
+            customerId: booking.customerId,
+            locationId: booking.locationId,
         });
 
         return res.status(201).json({
-            id: result.id,
-            externalId: result.externalId,
-            status: result.status,
+            id: booking.id,
+            bookingId: booking.id,
+            externalId: booking.externalId,
+            customerId: booking.customerId,
+            visitorId: resolvedVisitor?.visitorId ?? visitorId ?? null,
+            visitorRecordId: resolvedVisitor?.id ?? null,
+            connectorId: booking.connectorId,
+            locationId: booking.locationId,
+            checkoutSessionId,
+            touchIds: [...new Set(touches.map((touch) => touch.id))],
+            statusHistoryId: result.statusHistoryId,
+            attributionCreditIds: result.attributionCredits.map((credit) => credit.id),
+            status: booking.status,
             matchMethod,
             isNewCustomer: customerIsNew,
         });
@@ -219,9 +270,9 @@ export const updateBooking = async (req, res) => {
             return res.status(400).json({ message: `status must be one of: ${VALID_STATUSES.join(", ")}` });
         }
 
-        await db.transaction(async (tx) => {
+        const statusHistory = await db.transaction(async (tx) => {
             await tx.orm.public.Booking.where({ id: booking.id }).update({ status });
-            await tx.orm.public.BookingStatusHistory.create({
+            return tx.orm.public.BookingStatusHistory.create({
                 bookingId: booking.id,
                 status,
                 reason: reason ?? null,
@@ -236,7 +287,13 @@ export const updateBooking = async (req, res) => {
             reason: reason ?? null,
         });
 
-        return res.status(200).json({ message: "Booking updated", status });
+        return res.status(200).json({
+            id: booking.id,
+            bookingId: booking.id,
+            statusHistoryId: statusHistory.id,
+            message: "Booking updated",
+            status,
+        });
     } catch (error) {
         console.error("updateBooking error:", error.message);
         return res.status(500).json({ message: "Internal server error while updating booking" });

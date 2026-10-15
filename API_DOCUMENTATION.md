@@ -608,11 +608,15 @@ Called by the client-side JavaScript SDK on every page view or ad landing.
   ```json
   {
     "id": "touch-uuid",
+    "touchId": "touch-uuid",
     "visitorId": "uuid-generated-in-localstorage",
+    "visitorRecordId": "visitor-record-uuid",
+    "siteId": "site-uuid",
     "channel": "paid_search",
     "touchedAt": "2026-03-01T15:30:00.000Z"
   }
   ```
+  A deduplicated touch returns the existing `touchId` and `visitorRecordId` with HTTP `200`.
 
 ### 8.2 Identify Visitor
 Links anonymous visitor ID to a customer's email or phone upon form submission or signin.
@@ -631,6 +635,10 @@ Links anonymous visitor ID to a customer's email or phone upon form submission o
   ```json
   {
     "customerId": "cust-uuid",
+    "visitorId": "uuid-generated-in-localstorage",
+    "visitorRecordId": "visitor-record-uuid",
+    "touchIds": ["touch-uuid"],
+    "touchCount": 1,
     "isNew": false
   }
   ```
@@ -650,7 +658,12 @@ Freezes the visitor's marketing touches into a snapshot token to be attached to 
 * **Response `201 Created`:**
   ```json
   {
+    "checkoutSessionId": "checkout-session-uuid",
     "token": "cs_sec_999abc123...",
+    "visitorId": "uuid-generated-in-localstorage",
+    "visitorRecordId": "visitor-record-uuid",
+    "touchIds": ["touch-uuid"],
+    "touchCount": 1,
     "expiresAt": "2026-03-01T17:30:00.000Z"
   }
   ```
@@ -691,7 +704,17 @@ Ties an order to marketing touches across all 6 attribution models in one transa
   ```json
   {
     "id": "order-uuid",
+    "orderId": "order-uuid",
     "externalId": "order_12345",
+    "customerId": "cust-uuid",
+    "visitorId": "uuid-generated-in-localstorage",
+    "visitorRecordId": "visitor-record-uuid",
+    "connectorId": "connector-uuid",
+    "locationId": "location-uuid",
+    "checkoutSessionId": "checkout-session-uuid",
+    "touchIds": ["touch-uuid-1", "touch-uuid-2", "touch-uuid-3"],
+    "orderItemIds": ["order-item-uuid"],
+    "attributionCreditIds": ["attribution-credit-uuid"],
     "status": "paid",
     "matchMethod": "token",
     "isNewCustomer": true,
@@ -704,6 +727,7 @@ Ties an order to marketing touches across all 6 attribution models in one transa
 * **Method:** `PATCH`
 * **Endpoint:** `/v1/orders/:id`
 * **Body:** `{"status": "cancelled"}`
+* **Response:** Includes `id` / `orderId` and the updated `status`.
 
 ### 8.6 List Orders
 * **Method:** `GET`
@@ -723,7 +747,7 @@ Returns fractional credits for an order under each attribution model.
     "matchMethod": "token",
     "attribution": {
       "first_touch": [
-        { "touchId": "touch-1", "share": 1.0, "amountMinorUnits": "14000", "currency": "USD" }
+        { "id": "credit-uuid", "attributionCreditId": "credit-uuid", "touchId": "touch-1", "share": 1.0, "amountMinorUnits": "14000", "currency": "USD" }
       ],
       "last_non_direct": [
         { "touchId": "touch-2", "share": 1.0, "amountMinorUnits": "14000", "currency": "USD" }
@@ -738,6 +762,7 @@ Returns fractional credits for an order under each attribution model.
     }
   }
   ```
+  Every attribution entry includes both `id` and `attributionCreditId` so a frontend can cross-check the individual credit record.
 
 ### 8.8 Bookings APIs
 * **Create Booking:** `POST /v1/bookings`
@@ -756,10 +781,11 @@ Returns fractional credits for an order under each attribution model.
       "locationId": "loc-uuid"
     }
     ```
-  * **Response `201 Created`:** `{"id": "...", "externalId": "book_9876", "status": "scheduled", "matchMethod": "token", "isNewCustomer": true}`
+  * **Response `201 Created`:** Includes `id` / `bookingId`, `customerId`, `visitorId`, `visitorRecordId`, `connectorId`, `locationId`, `checkoutSessionId`, `touchIds`, `statusHistoryId`, and `attributionCreditIds` alongside status and matching details.
 * **Update Booking Status:** `PATCH /v1/bookings/:id`
   * **Body:** `{"status": "completed", "reason": "Service rendered"}`
   * *(Valid statuses: `scheduled`, `confirmed`, `completed`, `cancelled`, `rescheduled`, `no_show`)*
+  * **Response:** Includes `id` / `bookingId`, `statusHistoryId`, and the updated `status`.
 * **List Bookings:** `GET /v1/bookings` (`status`, `locationId`, `from`, `to`, `page`, `limit`)
 * **List Upcoming Bookings:** `GET /v1/bookings/upcoming?days=7&locationId=...`
 
@@ -775,7 +801,7 @@ Returns fractional credits for an order under each attribution model.
       "externalId": "re_99999"
     }
     ```
-  * **Response `201 Created`:** `{"id": "...", "orderId": "...", "amountMinorUnits": "5000", "orderStatus": "partially_refunded"}`
+  * **Response `201 Created`:** Includes `id` / `refundId`, `orderId`, `externalOrderId`, `externalId`, and updated `orderStatus`, plus the refund amount and currency. A duplicate refund returns the existing refund and order IDs with HTTP `200`.
 
 ### 8.10 Customers & Attribution Journey APIs
 * **List Customers:** `GET /v1/customers`

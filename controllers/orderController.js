@@ -63,7 +63,34 @@ export const createOrder = async (req, res) => {
         const ikey = idempotencyKey || externalId;
         const existing = await db.orm.public.Order.where({ workspaceId, externalId }).first();
         if (existing) {
-            return res.status(200).json({ id: existing.id, status: "already_processed", message: "Duplicate order — already ingested" });
+            const [items, credits, session] = await Promise.all([
+                db.orm.public.OrderItem.where({ orderId: existing.id }).all(),
+                db.orm.public.AttributionCredit.where({ orderId: existing.id }).all(),
+                existing.checkoutToken
+                    ? db.orm.public.CheckoutSession.where({ workspaceId, token: existing.checkoutToken }).first()
+                    : null,
+            ]);
+            const visitor = visitorId
+                ? await db.orm.public.Visitor.where({ workspaceId, visitorId }).first()
+                : session
+                    ? await db.orm.public.Visitor.where({ id: session.visitorId, workspaceId }).first()
+                    : null;
+            return res.status(200).json({
+                id: existing.id,
+                orderId: existing.id,
+                externalId: existing.externalId,
+                customerId: existing.customerId,
+                visitorId: visitor?.visitorId ?? visitorId ?? null,
+                visitorRecordId: visitor?.id ?? null,
+                connectorId: existing.connectorId,
+                locationId: existing.locationId,
+                checkoutSessionId: session?.id ?? null,
+                touchIds: [...new Set(credits.map((credit) => credit.touchId).filter(Boolean))],
+                orderItemIds: items.map((item) => item.id),
+                attributionCreditIds: credits.map((credit) => credit.id),
+                status: "already_processed",
+                message: "Duplicate order — already ingested",
+            });
         }
 
         const grossMinorUnits = toMinorUnits(grossAmount);
@@ -84,9 +111,20 @@ export const createOrder = async (req, res) => {
         // ── Touch Resolution ───────────────────────────────────────
         let touches = [];
         let matchMethod = "none";
+        let checkoutSessionId = null;
+        let resolvedVisitor = visitorId
+            ? await db.orm.public.Visitor.where({ workspaceId, visitorId }).first()
+            : null;
 
         if (checkoutToken) {
             const session = await db.orm.public.CheckoutSession.where({ token: checkoutToken, workspaceId }).first();
+            checkoutSessionId = session?.id ?? null;
+            if (session && !resolvedVisitor) {
+                resolvedVisitor = await db.orm.public.Visitor.where({
+                    id: session.visitorId,
+                    workspaceId,
+                }).first();
+            }
             if (session && !session.consumedAt && new Date(session.expiresAt) > new Date()) {
                 // Load touch records from the frozen snapshot
                 const touchIds = (session.frozenTouches || []).map(t => t.id).filter(Boolean);
@@ -158,8 +196,9 @@ export const createOrder = async (req, res) => {
             });
 
             // Save order items
+            const orderItemIds = [];
             for (const item of items) {
-                await tx.orm.public.OrderItem.create({
+                const createdItem = await tx.orm.public.OrderItem.create({
                     orderId: order.id,
                     name: item.name || "Item",
                     quantity: item.quantity || 1,
@@ -168,12 +207,14 @@ export const createOrder = async (req, res) => {
                     currency: (item.currency || currency).toUpperCase(),
                     externalId: item.externalId ?? null,
                 });
+                orderItemIds.push(createdItem.id);
             }
 
             // Mark checkout session as consumed
             if (checkoutToken) {
                 const session = await tx.orm.public.CheckoutSession.where({ token: checkoutToken, workspaceId }).first();
                 if (session) {
+                    checkoutSessionId = session.id;
                     await tx.orm.public.CheckoutSession.where({ id: session.id }).update({
                         consumedAt: new Date().toISOString(),
                         consumedOrderId: order.id,
@@ -182,8 +223,11 @@ export const createOrder = async (req, res) => {
             }
 
             // Save attribution credits (all 6 models)
+            const attributionCredits = [];
             for (const row of creditRows) {
-                await tx.orm.public.AttributionCredit.create({ ...row, orderId: order.id });
+                attributionCredits.push(
+                    await tx.orm.public.AttributionCredit.create({ ...row, orderId: order.id })
+                );
             }
 
             // Update customer purchase timestamps
@@ -206,31 +250,43 @@ export const createOrder = async (req, res) => {
                 userAgent: req.headers["user-agent"] ?? null,
             });
 
-            return order;
+            return { order, orderItemIds, attributionCredits };
         });
+
+        const order = result.order;
 
         // Dispatch outbound webhook (fire-and-forget)
         dispatchWebhook(workspaceId, "order.created", {
-            orderId: result.id,
-            externalId: result.externalId,
-            status: result.status,
-            grossMinorUnits: result.grossMinorUnits?.toString(),
-            netMinorUnits: result.netMinorUnits?.toString(),
-            currency: result.currency,
+            orderId: order.id,
+            externalId: order.externalId,
+            status: order.status,
+            grossMinorUnits: order.grossMinorUnits?.toString(),
+            netMinorUnits: order.netMinorUnits?.toString(),
+            currency: order.currency,
             matchMethod,
             isNewCustomer: customerIsNew,
             touchCount: touches.length,
-            orderedAt: result.orderedAt,
+            orderedAt: order.orderedAt,
         });
 
         return res.status(201).json({
-            id: result.id,
-            externalId: result.externalId,
-            status: result.status,
+            id: order.id,
+            orderId: order.id,
+            externalId: order.externalId,
+            customerId: order.customerId,
+            visitorId: resolvedVisitor?.visitorId ?? visitorId ?? null,
+            visitorRecordId: resolvedVisitor?.id ?? null,
+            connectorId: order.connectorId,
+            locationId: order.locationId,
+            checkoutSessionId,
+            touchIds: [...new Set(touches.map((touch) => touch.id))],
+            orderItemIds: result.orderItemIds,
+            attributionCreditIds: result.attributionCredits.map((credit) => credit.id),
+            status: order.status,
             matchMethod,
             isNewCustomer: customerIsNew,
             touchCount: touches.length,
-            currency: result.currency,
+            currency: order.currency,
         });
     } catch (error) {
         console.error("createOrder error:", error.message);
@@ -263,7 +319,12 @@ export const updateOrder = async (req, res) => {
             ...changes,
         });
 
-        return res.status(200).json({ message: "Order updated" });
+        return res.status(200).json({
+            id: order.id,
+            orderId: order.id,
+            status: changes.status,
+            message: "Order updated",
+        });
     } catch (error) {
         console.error("updateOrder error:", error.message);
         return res.status(500).json({ message: "Internal server error while updating order" });
@@ -345,6 +406,8 @@ export const getOrderAttribution = async (req, res) => {
         for (const credit of credits) {
             if (!byModel[credit.model]) byModel[credit.model] = [];
             byModel[credit.model].push({
+                id: credit.id,
+                attributionCreditId: credit.id,
                 touchId: credit.touchId,
                 share: credit.share,
                 amountMinorUnits: credit.amountMinorUnits?.toString(),
