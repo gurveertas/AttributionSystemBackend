@@ -7,6 +7,7 @@
 
 import crypto from "crypto";
 import { db } from "../src/prisma/db.js";
+import { prepareConnectorConfig } from "../utils/connectorConfig.js";
 
 const orm = () => db.orm.public;
 const VALID_TYPES = ["zenoti", "stripe", "shopify", "razorpay", "generic", "woocommerce", "paypal", "square"];
@@ -26,6 +27,12 @@ export const createConnector = async (req, res) => {
         if (!name || typeof name !== "string" || name.trim().length < 1) {
             return res.status(400).json({ message: "name is required" });
         }
+        let storedConfig;
+        try {
+            storedConfig = prepareConnectorConfig(config);
+        } catch (error) {
+            return res.status(400).json({ message: error.message });
+        }
 
         const publicId = `conn_${crypto.randomBytes(12).toString("hex")}`;
 
@@ -36,7 +43,7 @@ export const createConnector = async (req, res) => {
                 name: name.trim(),
                 publicId,
                 status: "pending",
-                config: config || null,
+                ...storedConfig,
             });
 
             await tx.orm.public.AuditLog.create({
@@ -55,7 +62,7 @@ export const createConnector = async (req, res) => {
         });
 
         // Build the webhook URL the user should configure in their system
-        const baseUrl = process.env.APP_API_URL || `https://api.example.com`;
+        const baseUrl = process.env.APP_API_URL || `https://asbtemp-production.up.railway.app`;
         const webhookUrl = `${baseUrl}/api/connectors/${type}/webhook?connectorId=${connector.id}`;
 
         return res.status(201).json({
@@ -117,6 +124,14 @@ export const updateConnector = async (req, res) => {
 
         if (changes.status && !["pending", "healthy", "disabled"].includes(changes.status)) {
             return res.status(400).json({ message: "Invalid status" });
+        }
+
+        if (Object.prototype.hasOwnProperty.call(changes, "config")) {
+            try {
+                Object.assign(changes, prepareConnectorConfig(changes.config));
+            } catch (error) {
+                return res.status(400).json({ message: error.message });
+            }
         }
 
         if (!Object.keys(changes).length) return res.status(400).json({ message: "Nothing to update" });

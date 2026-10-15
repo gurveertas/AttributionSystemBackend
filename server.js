@@ -19,9 +19,12 @@ const app = express();
 app.set('trust proxy', 1);
 
 // ── Global middleware ──────────────────────────────────────────────────────
-// NOTE: Connector routes for Stripe need raw body, handled in their own router.
-// The global JSON parser is applied first; Stripe route overrides it.
-app.use(express.json());
+// Preserve the original JSON bytes for webhook signature verification.
+app.use(express.json({
+    verify(req, res, buffer) {
+        req.rawBody = buffer.toString("utf8");
+    },
+}));
 app.use(cookieParser());
 
 const allowedOrigins = [

@@ -11,10 +11,7 @@
  * The route receives ?connectorId=<id> or a path param, then we look up
  * the connector and verify against its stored secret.
  *
- * ⚠️ THIRD-PARTY NOTE:
- * Stripe signature verification uses the `stripe` npm package.
- * Install it with: npm install stripe
- * All other connectors use crypto (already installed).
+ * Provider secrets are loaded from encrypted connector storage.
  */
 
 import crypto from "crypto";
@@ -22,10 +19,59 @@ import { db } from "../src/prisma/db.js";
 import { createOrder } from "./orderController.js";
 import { createBooking } from "./bookingController.js";
 import { createRefund } from "./refundController.js";
+import {
+    getConnectorConfig,
+    getNestedValue,
+    getRawBody,
+    ingestMappedOrder,
+    verifyHmacSignature,
+} from "../utils/connectorConfig.js";
 
 const orm = () => db.orm.public;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+function verifyStripeSignature(rawBody, signatureHeader, secret) {
+    if (!signatureHeader || !secret) return false;
+    const fields = signatureHeader.split(",").map((part) => part.split("=", 2));
+    const timestamp = fields.find(([key]) => key === "t")?.[1];
+    const signatures = fields
+        .filter(([key]) => key === "v1")
+        .map(([, value]) => value);
+    const timestampSeconds = Number(timestamp);
+    if (!Number.isInteger(timestampSeconds) ||
+        Math.abs(Date.now() / 1000 - timestampSeconds) > 300) return false;
+
+    const expected = crypto
+        .createHmac("sha256", secret)
+        .update(`${timestamp}.${rawBody}`)
+        .digest();
+    return signatures.some((signature) => {
+        const received = Buffer.from(signature, "hex");
+        return received.length === expected.length && crypto.timingSafeEqual(received, expected);
+    });
+}
+
+function captureControllerResponse() {
+    return {
+        statusCode: 200,
+        body: null,
+        status(code) {
+            this.statusCode = code;
+            return this;
+        },
+        json(body) {
+            this.body = body;
+            return this;
+        },
+    };
+}
+
+function assertControllerSucceeded(response, operation) {
+    if (response.statusCode >= 400) {
+        throw new Error(`${operation} failed (${response.statusCode}): ${response.body?.message ?? "unknown error"}`);
+    }
+}
 
 async function saveRawEvent(workspaceId, connectorId, source, eventType, payload) {
     try {
@@ -68,7 +114,6 @@ async function lookupConnector(connectorId, workspaceId) {
  * Headers: stripe-signature
  * Query:   connectorId
  *
- * ⚠️ Requires: npm install stripe
  */
 export const stripeWebhook = async (req, res) => {
     const connectorId = req.query.connectorId;
@@ -76,24 +121,24 @@ export const stripeWebhook = async (req, res) => {
 
     const connector = await lookupConnector(connectorId);
     if (!connector) return res.status(404).json({ message: "Connector not found" });
+    if (connector.type !== "stripe") return res.status(400).json({ message: "Connector is not configured for Stripe" });
 
     const workspaceId = connector.workspaceId;
-    const rawBody = req.rawBody || JSON.stringify(req.body); // need raw body for Stripe signature
+    const rawBody = getRawBody(req);
     const sig = req.headers["stripe-signature"];
 
-    // Extract the webhook secret from connector config
-    const webhookSecret = connector.config?.webhookSecret;
+    const config = getConnectorConfig(connector);
+    const webhookSecret = config.webhookSecret;
     if (!webhookSecret) return res.status(500).json({ message: "Connector is missing webhookSecret in config" });
 
     let event;
+    if (!verifyStripeSignature(rawBody, sig, webhookSecret)) {
+        return res.status(400).json({ message: "Invalid or expired Stripe signature" });
+    }
     try {
-        // Dynamic import so the server doesn't crash if stripe is not installed
-        const { default: Stripe } = await import("stripe");
-        const stripe = new Stripe(webhookSecret);
-        event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-    } catch (err) {
-        console.error("Stripe signature verification failed:", err.message);
-        return res.status(400).json({ message: "Invalid Stripe signature" });
+        event = JSON.parse(rawBody);
+    } catch {
+        return res.status(400).json({ message: "Invalid JSON webhook payload" });
     }
 
     const rawEvent = await saveRawEvent(workspaceId, connectorId, "stripe", event.type, event);
@@ -103,36 +148,76 @@ export const stripeWebhook = async (req, res) => {
 
     // Normalize and ingest
     try {
+        let orderResult = null;
+        let refundResult = null;
         if (event.type === "payment_intent.succeeded" || event.type === "charge.succeeded") {
             const pi = event.data.object;
             const checkoutToken = pi.metadata?.attribution_token || pi.metadata?.checkout_token || null;
             const email = pi.receipt_email || pi.metadata?.email || null;
+            const externalId = event.type === "charge.succeeded"
+                ? pi.payment_intent || pi.id
+                : pi.id;
+            const amountReceived = pi.amount_received ?? pi.amount_captured ?? pi.amount;
 
             // Synthesize req/res for createOrder
             const fakeReq = {
                 workspaceId,
                 body: {
-                    externalId: pi.id,
+                    externalId,
                     orderedAt: new Date(pi.created * 1000).toISOString(),
                     currency: (pi.currency || "usd").toUpperCase(),
                     grossAmount: pi.amount / 100,
-                    netAmount: pi.amount_received / 100,
+                    netAmount: amountReceived / 100,
                     checkoutToken,
                     email,
                     connectorId,
-                    idempotencyKey: pi.id,
+                    idempotencyKey: externalId,
                 },
                 ip: null,
                 headers: {},
                 apiKey: {},
             };
-            const fakeRes = {
-                _status: 200,
-                _body: null,
-                status(code) { this._status = code; return this; },
-                json(body) { this._body = body; return this; },
-            };
+            const fakeRes = captureControllerResponse();
             await createOrder(fakeReq, fakeRes);
+            assertControllerSucceeded(fakeRes, "Stripe order ingestion");
+            orderResult = fakeRes.body;
+
+        } else if (
+            event.type === "checkout.session.completed" ||
+            event.type === "checkout.session.async_payment_succeeded"
+        ) {
+            const session = event.data.object;
+            if (session.payment_status === "paid") {
+                const paymentIntentId = typeof session.payment_intent === "string"
+                    ? session.payment_intent
+                    : session.payment_intent?.id;
+                const checkoutToken = session.metadata?.attribution_token
+                    || session.metadata?.checkout_token
+                    || session.client_reference_id
+                    || null;
+                const amount = (session.amount_total ?? 0) / 100;
+                const fakeReq = {
+                    workspaceId,
+                    body: {
+                        externalId: paymentIntentId || session.id,
+                        orderedAt: new Date(session.created * 1000).toISOString(),
+                        currency: (session.currency || "usd").toUpperCase(),
+                        grossAmount: amount,
+                        netAmount: amount,
+                        checkoutToken,
+                        email: session.customer_details?.email || session.customer_email || null,
+                        connectorId,
+                        idempotencyKey: paymentIntentId || session.id,
+                    },
+                    ip: null,
+                    headers: {},
+                    apiKey: {},
+                };
+                const fakeRes = captureControllerResponse();
+                await createOrder(fakeReq, fakeRes);
+                assertControllerSucceeded(fakeRes, "Stripe order ingestion");
+                orderResult = fakeRes.body;
+            }
 
         } else if (event.type === "charge.refunded") {
             const charge = event.data.object;
@@ -150,17 +235,19 @@ export const stripeWebhook = async (req, res) => {
                     ip: null,
                     headers: {},
                 };
-                const fakeRes = {
-                    _status: 200,
-                    status(c) { this._status = c; return this; },
-                    json(b) { this._body = b; return this; },
-                };
+                const fakeRes = captureControllerResponse();
                 await createRefund(fakeReq, fakeRes);
+                assertControllerSucceeded(fakeRes, "Stripe refund ingestion");
+                refundResult = fakeRes.body;
             }
         }
 
         await markRawEvent(rawEvent?.id, "processed");
-        return res.status(200).json({ received: true });
+        return res.status(200).json({
+            received: true,
+            ...(orderResult ? { order: orderResult } : {}),
+            ...(refundResult ? { refund: refundResult } : {}),
+        });
     } catch (err) {
         await markRawEvent(rawEvent?.id, "failed", err.message);
         // Update connector error count
@@ -188,21 +275,22 @@ export const shopifyWebhook = async (req, res) => {
 
     const connector = await lookupConnector(connectorId);
     if (!connector) return res.status(404).json({ message: "Connector not found" });
+    if (connector.type !== "shopify") return res.status(400).json({ message: "Connector is not configured for Shopify" });
 
     const workspaceId = connector.workspaceId;
-    const sharedSecret = connector.config?.sharedSecret;
+    const config = getConnectorConfig(connector);
+    const sharedSecret = config.sharedSecret || config.webhookSecret;
 
-    // Verify HMAC
-    if (sharedSecret) {
-        const receivedHmac = req.headers["x-shopify-hmac-sha256"] || "";
-        const rawBody = req.rawBody || JSON.stringify(req.body);
-        const computedHmac = crypto
-            .createHmac("sha256", sharedSecret)
-            .update(rawBody)
-            .digest("base64");
-        if (!crypto.timingSafeEqual(Buffer.from(receivedHmac), Buffer.from(computedHmac))) {
-            return res.status(401).json({ message: "Invalid Shopify HMAC signature" });
-        }
+    if (!sharedSecret) {
+        return res.status(500).json({ message: "Connector is missing sharedSecret in config" });
+    }
+    if (!verifyHmacSignature({
+        secret: sharedSecret,
+        signature: req.headers["x-shopify-hmac-sha256"],
+        payload: getRawBody(req),
+        encoding: "base64",
+    })) {
+        return res.status(401).json({ message: "Invalid Shopify HMAC signature" });
     }
 
     const topic = req.headers["x-shopify-topic"] || "";
@@ -211,9 +299,14 @@ export const shopifyWebhook = async (req, res) => {
     void orm().Connector.where({ id: connectorId }).update({ lastEventAt: new Date().toISOString() }).catch(() => {});
 
     try {
+        let orderResult = null;
+        let refundResult = null;
         if (topic === "orders/paid" || topic === "orders/create") {
             const order = payload;
-            const checkoutToken = order.cart_attributes?.find(a => a.name === "attribution_token")?.value || null;
+            const attributes = [...(order.cart_attributes || []), ...(order.note_attributes || [])];
+            const checkoutToken = attributes.find(a =>
+                ["attribution_token", "checkout_token"].includes(a.name)
+            )?.value || null;
             const email = order.email || order.customer?.email || null;
             const phone = order.phone || order.billing_address?.phone || null;
 
@@ -243,8 +336,10 @@ export const shopifyWebhook = async (req, res) => {
                 headers: {},
                 apiKey: {},
             };
-            const fakeRes = { status(c) { return this; }, json(b) { return this; } };
+            const fakeRes = captureControllerResponse();
             await createOrder(fakeReq, fakeRes);
+            assertControllerSucceeded(fakeRes, "Shopify order ingestion");
+            orderResult = fakeRes.body;
 
         } else if (topic === "refunds/create") {
             const refund = payload;
@@ -261,12 +356,18 @@ export const shopifyWebhook = async (req, res) => {
                 ip: null,
                 headers: {},
             };
-            const fakeRes = { status(c) { return this; }, json(b) { return this; } };
+            const fakeRes = captureControllerResponse();
             await createRefund(fakeReq, fakeRes);
+            assertControllerSucceeded(fakeRes, "Shopify refund ingestion");
+            refundResult = fakeRes.body;
         }
 
         await markRawEvent(rawEvent?.id, "processed");
-        return res.status(200).json({ received: true });
+        return res.status(200).json({
+            received: true,
+            ...(orderResult ? { order: orderResult } : {}),
+            ...(refundResult ? { refund: refundResult } : {}),
+        });
     } catch (err) {
         await markRawEvent(rawEvent?.id, "failed", err.message);
         console.error("shopifyWebhook error:", err.message);
@@ -287,14 +388,31 @@ export const zenotiWebhook = async (req, res) => {
 
     const connector = await lookupConnector(connectorId);
     if (!connector) return res.status(404).json({ message: "Connector not found" });
+    if (connector.type !== "zenoti") return res.status(400).json({ message: "Connector is not configured for Zenoti" });
 
     const workspaceId = connector.workspaceId;
+    const config = getConnectorConfig(connector);
+    if (!config.webhookSecret) {
+        return res.status(500).json({ message: "Connector is missing webhookSecret in config" });
+    }
+    if (!verifyHmacSignature({
+        secret: config.webhookSecret,
+        signature: req.headers["x-zenoti-signature"],
+        payload: getRawBody(req),
+        encoding: config.signatureEncoding || "hex",
+        prefix: config.signaturePrefix || "",
+    })) {
+        return res.status(401).json({ message: "Invalid Zenoti signature" });
+    }
+
     const payload = req.body;
     const eventType = payload?.event_type || payload?.type || "unknown";
     const rawEvent = await saveRawEvent(workspaceId, connectorId, "zenoti", eventType, payload);
     void orm().Connector.where({ id: connectorId }).update({ lastEventAt: new Date().toISOString() }).catch(() => {});
 
     try {
+        let orderResult = null;
+        let bookingResult = null;
         if (eventType === "appointment.created" || eventType === "appointment.booked") {
             const appt = payload.appointment || payload;
             const guest = appt.guest || {};
@@ -317,8 +435,10 @@ export const zenotiWebhook = async (req, res) => {
                 headers: {},
                 apiKey: {},
             };
-            const fakeRes = { status(c) { return this; }, json(b) { return this; } };
+            const fakeRes = captureControllerResponse();
             await createBooking(fakeReq, fakeRes);
+            assertControllerSucceeded(fakeRes, "Zenoti booking ingestion");
+            bookingResult = fakeRes.body;
 
         } else if (eventType === "invoice.completed" || eventType === "invoice.paid") {
             const invoice = payload.invoice || payload;
@@ -342,12 +462,18 @@ export const zenotiWebhook = async (req, res) => {
                 headers: {},
                 apiKey: {},
             };
-            const fakeRes = { status(c) { return this; }, json(b) { return this; } };
+            const fakeRes = captureControllerResponse();
             await createOrder(fakeReq, fakeRes);
+            assertControllerSucceeded(fakeRes, "Zenoti order ingestion");
+            orderResult = fakeRes.body;
         }
 
         await markRawEvent(rawEvent?.id, "processed");
-        return res.status(200).json({ received: true });
+        return res.status(200).json({
+            received: true,
+            ...(orderResult ? { order: orderResult } : {}),
+            ...(bookingResult ? { booking: bookingResult } : {}),
+        });
     } catch (err) {
         await markRawEvent(rawEvent?.id, "failed", err.message);
         console.error("zenotiWebhook error:", err.message);
@@ -367,17 +493,22 @@ export const razorpayWebhook = async (req, res) => {
 
     const connector = await lookupConnector(connectorId);
     if (!connector) return res.status(404).json({ message: "Connector not found" });
+    if (connector.type !== "razorpay") return res.status(400).json({ message: "Connector is not configured for Razorpay" });
 
     const workspaceId = connector.workspaceId;
-    const webhookSecret = connector.config?.webhookSecret;
+    const config = getConnectorConfig(connector);
+    const webhookSecret = config.webhookSecret;
 
-    if (webhookSecret) {
-        const sig = req.headers["x-razorpay-signature"] || "";
-        const rawBody = req.rawBody || JSON.stringify(req.body);
-        const expected = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
-        if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
-            return res.status(401).json({ message: "Invalid Razorpay signature" });
-        }
+    if (!webhookSecret) {
+        return res.status(500).json({ message: "Connector is missing webhookSecret in config" });
+    }
+    if (!verifyHmacSignature({
+        secret: webhookSecret,
+        signature: req.headers["x-razorpay-signature"],
+        payload: getRawBody(req),
+        encoding: "hex",
+    })) {
+        return res.status(401).json({ message: "Invalid Razorpay signature" });
     }
 
     const payload = req.body;
@@ -386,6 +517,7 @@ export const razorpayWebhook = async (req, res) => {
     void orm().Connector.where({ id: connectorId }).update({ lastEventAt: new Date().toISOString() }).catch(() => {});
 
     try {
+        let orderResult = null;
         if (eventType === "payment.captured" || eventType === "order.paid") {
             const payment = payload.payload?.payment?.entity || {};
             const checkoutToken = payment.notes?.attribution_token || null;
@@ -409,12 +541,17 @@ export const razorpayWebhook = async (req, res) => {
                 headers: {},
                 apiKey: {},
             };
-            const fakeRes = { status(c) { return this; }, json(b) { return this; } };
+            const fakeRes = captureControllerResponse();
             await createOrder(fakeReq, fakeRes);
+            assertControllerSucceeded(fakeRes, "Razorpay order ingestion");
+            orderResult = fakeRes.body;
         }
 
         await markRawEvent(rawEvent?.id, "processed");
-        return res.status(200).json({ received: true });
+        return res.status(200).json({
+            received: true,
+            ...(orderResult ? { order: orderResult } : {}),
+        });
     } catch (err) {
         await markRawEvent(rawEvent?.id, "failed", err.message);
         console.error("razorpayWebhook error:", err.message);
@@ -422,31 +559,148 @@ export const razorpayWebhook = async (req, res) => {
     }
 };
 
-// ── Generic REST Webhook ──────────────────────────────────────────────────────
+// ── PayPal ───────────────────────────────────────────────────────────────────
 
-/**
- * POST /api/connectors/generic/webhook
- * Query: connectorId
- *
- * Uses field mapping stored in connector.config.fieldMap:
- * {
- *   externalId: "order.id",
- *   orderedAt: "order.date",
- *   grossAmount: "order.total",
- *   netAmount: "order.net",
- *   currency: "order.currency",
- *   email: "customer.email",
- *   checkoutToken: "order.meta.attribution_token"
- * }
- *
- * eventType field: connector.config.eventTypeField (e.g. "type" or "event")
- * orderEventTypes: connector.config.orderEventTypes (array of strings)
- * bookingEventTypes: connector.config.bookingEventTypes (array of strings)
- */
-function getNestedValue(obj, path) {
-    if (!path) return undefined;
-    return String(path).split(".").reduce((acc, key) => acc?.[key], obj);
+async function verifyPayPalWebhook(req, config) {
+    if (!config.clientId || !config.clientSecret || !config.webhookId) {
+        throw new Error("PayPal connector requires clientId, clientSecret, and webhookId");
+    }
+
+    const apiBase = config.paypalEnvironment === "live"
+        ? "https://api-m.paypal.com"
+        : "https://api-m.sandbox.paypal.com";
+    const headers = req.headers;
+    const transmission = {
+        auth_algo: headers["paypal-auth-algo"],
+        cert_url: headers["paypal-cert-url"],
+        transmission_id: headers["paypal-transmission-id"],
+        transmission_sig: headers["paypal-transmission-sig"],
+        transmission_time: headers["paypal-transmission-time"],
+        webhook_id: config.webhookId,
+        webhook_event: req.body,
+    };
+    if (Object.values(transmission).some((value) => !value)) {
+        throw new Error("PayPal webhook is missing required signature headers");
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+        const credentials = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
+        const tokenResponse = await fetch(`${apiBase}/v1/oauth2/token`, {
+            method: "POST",
+            headers: {
+                Authorization: `Basic ${credentials}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: "grant_type=client_credentials",
+            signal: controller.signal,
+        });
+        if (!tokenResponse.ok) {
+            throw new Error(`PayPal OAuth verification failed (${tokenResponse.status})`);
+        }
+        const tokenData = await tokenResponse.json();
+        if (!tokenData.access_token) throw new Error("PayPal OAuth response did not include an access token");
+
+        const verificationResponse = await fetch(`${apiBase}/v1/notifications/verify-webhook-signature`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${tokenData.access_token}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(transmission),
+            signal: controller.signal,
+        });
+        if (!verificationResponse.ok) {
+            throw new Error(`PayPal webhook verification failed (${verificationResponse.status})`);
+        }
+        const verification = await verificationResponse.json();
+        return verification.verification_status === "SUCCESS";
+    } finally {
+        clearTimeout(timeout);
+    }
 }
+
+export const paypalWebhook = async (req, res) => {
+    const connectorId = req.query.connectorId;
+    if (!connectorId) return res.status(400).json({ message: "connectorId required" });
+
+    const connector = await lookupConnector(connectorId);
+    if (!connector) return res.status(404).json({ message: "Connector not found" });
+    if (connector.type !== "paypal") return res.status(400).json({ message: "Connector is not configured for PayPal" });
+
+    let config;
+    try {
+        config = getConnectorConfig(connector);
+    } catch (error) {
+        console.error("PayPal webhook verification failed:", error.message);
+        return res.status(500).json({ message: "PayPal connector configuration is invalid" });
+    }
+    if (!config.clientId || !config.clientSecret || !config.webhookId) {
+        return res.status(500).json({ message: "PayPal connector requires clientId, clientSecret, and webhookId" });
+    }
+    const requiredHeaders = [
+        "paypal-auth-algo",
+        "paypal-cert-url",
+        "paypal-transmission-id",
+        "paypal-transmission-sig",
+        "paypal-transmission-time",
+    ];
+    if (requiredHeaders.some((header) => !req.headers[header])) {
+        return res.status(400).json({ message: "PayPal webhook is missing signature headers" });
+    }
+    let isValidSignature;
+    try {
+        isValidSignature = await verifyPayPalWebhook(req, config);
+    } catch (error) {
+        console.error("PayPal webhook verification failed:", error.message);
+        return res.status(503).json({ message: "PayPal signature verification is temporarily unavailable" });
+    }
+    if (!isValidSignature) return res.status(401).json({ message: "Invalid PayPal webhook signature" });
+
+    const workspaceId = connector.workspaceId;
+    const payload = req.body;
+    const eventType = payload?.event_type || "unknown";
+    const rawEvent = await saveRawEvent(workspaceId, connectorId, "paypal", eventType, payload);
+    void orm().Connector.where({ id: connectorId }).update({ lastEventAt: new Date().toISOString() }).catch(() => {});
+
+    try {
+        const orderEventTypes = config.orderEventTypes || ["PAYMENT.CAPTURE.COMPLETED"];
+        let orderResult = null;
+        if (orderEventTypes.includes(eventType)) {
+            const resource = payload.resource || {};
+            const fieldMap = {
+                externalId: "resource.id",
+                orderedAt: "resource.create_time",
+                currency: "resource.amount.currency_code",
+                grossAmount: "resource.amount.value",
+                netAmount: "resource.amount.value",
+                email: "resource.payer.email_address",
+                checkoutToken: "resource.custom_id",
+                ...config.fieldMap,
+            };
+            orderResult = await ingestMappedOrder({
+                payload,
+                fieldMap,
+                connectorId,
+                workspaceId,
+                req,
+                createOrder,
+            });
+        }
+        await markRawEvent(rawEvent?.id, "processed");
+        return res.status(200).json({
+            received: true,
+            ...(orderResult ? { order: orderResult } : {}),
+        });
+    } catch (error) {
+        await markRawEvent(rawEvent?.id, "failed", error.message);
+        console.error("paypalWebhook error:", error.message);
+        return res.status(500).json({ message: "Processing failed" });
+    }
+};
+
+// ── Generic REST Webhook ──────────────────────────────────────────────────────
 
 export const genericWebhook = async (req, res) => {
     const connectorId = req.query.connectorId;
@@ -454,49 +708,54 @@ export const genericWebhook = async (req, res) => {
 
     const connector = await lookupConnector(connectorId);
     if (!connector) return res.status(404).json({ message: "Connector not found" });
+    if (!["generic", "woocommerce", "square"].includes(connector.type)) {
+        return res.status(400).json({ message: "Connector does not use the configurable HMAC webhook" });
+    }
 
     const workspaceId = connector.workspaceId;
-    const config = connector.config || {};
+    const config = getConnectorConfig(connector);
     const fieldMap = config.fieldMap || {};
 
-    // Optional HMAC verification
-    if (config.webhookSecret) {
-        const sig = req.headers[config.signatureHeader || "x-signature"] || "";
-        const rawBody = req.rawBody || JSON.stringify(req.body);
-        const expected = crypto.createHmac("sha256", config.webhookSecret).update(rawBody).digest("hex");
-        if (sig !== expected) return res.status(401).json({ message: "Invalid signature" });
+    if (!config.webhookSecret) {
+        return res.status(500).json({ message: "Connector is missing webhookSecret in config" });
+    }
+    const signature = req.headers[String(config.signatureHeader || "x-signature").toLowerCase()];
+    const signaturePayload = config.signatureIncludeUrl
+        ? `${config.notificationUrl || `${req.protocol}://${req.get("host")}${req.originalUrl}`}${getRawBody(req)}`
+        : getRawBody(req);
+    if (!verifyHmacSignature({
+        secret: config.webhookSecret,
+        signature,
+        payload: signaturePayload,
+        encoding: config.signatureEncoding || "hex",
+        prefix: config.signaturePrefix || "",
+    })) {
+        return res.status(401).json({ message: "Invalid signature" });
     }
 
     const payload = req.body;
-    const eventType = getNestedValue(payload, config.eventTypeField || "type") || "unknown";
-    const rawEvent = await saveRawEvent(workspaceId, connectorId, "generic", eventType, payload);
+    const eventType = config.eventTypeHeader
+        ? req.headers[String(config.eventTypeHeader).toLowerCase()]
+        : getNestedValue(payload, config.eventTypeField || "type");
+    const resolvedEventType = eventType || "unknown";
+    const rawEvent = await saveRawEvent(workspaceId, connectorId, connector.type, resolvedEventType, payload);
     void orm().Connector.where({ id: connectorId }).update({ lastEventAt: new Date().toISOString() }).catch(() => {});
 
-    const isOrderEvent = (config.orderEventTypes || ["order.paid", "payment.completed"]).includes(eventType);
-    const isBookingEvent = (config.bookingEventTypes || ["booking.created"]).includes(eventType);
+    const isOrderEvent = (config.orderEventTypes || ["order.paid", "payment.completed"]).includes(resolvedEventType);
+    const isBookingEvent = (config.bookingEventTypes || ["booking.created"]).includes(resolvedEventType);
 
     try {
+        let orderResult = null;
+        let bookingResult = null;
         if (isOrderEvent) {
-            const fakeReq = {
+            orderResult = await ingestMappedOrder({
+                payload,
+                fieldMap,
+                connectorId,
                 workspaceId,
-                body: {
-                    externalId: String(getNestedValue(payload, fieldMap.externalId) || ""),
-                    orderedAt: getNestedValue(payload, fieldMap.orderedAt) || new Date().toISOString(),
-                    currency: String(getNestedValue(payload, fieldMap.currency) || "USD").toUpperCase(),
-                    grossAmount: parseFloat(getNestedValue(payload, fieldMap.grossAmount) || 0),
-                    netAmount: parseFloat(getNestedValue(payload, fieldMap.netAmount) || getNestedValue(payload, fieldMap.grossAmount) || 0),
-                    discountAmount: parseFloat(getNestedValue(payload, fieldMap.discountAmount) || 0),
-                    email: getNestedValue(payload, fieldMap.email) || null,
-                    phone: getNestedValue(payload, fieldMap.phone) || null,
-                    checkoutToken: getNestedValue(payload, fieldMap.checkoutToken) || null,
-                    connectorId,
-                },
-                ip: null,
-                headers: {},
-                apiKey: {},
-            };
-            const fakeRes = { status(c) { return this; }, json(b) { return this; } };
-            await createOrder(fakeReq, fakeRes);
+                req,
+                createOrder,
+            });
 
         } else if (isBookingEvent) {
             const fakeReq = {
@@ -516,8 +775,10 @@ export const genericWebhook = async (req, res) => {
                 headers: {},
                 apiKey: {},
             };
-            const fakeRes = { status(c) { return this; }, json(b) { return this; } };
+            const fakeRes = captureControllerResponse();
             await createBooking(fakeReq, fakeRes);
+            assertControllerSucceeded(fakeRes, "Generic booking ingestion");
+            bookingResult = fakeRes.body;
         } else {
             // Unknown event type — just store it, don't fail
             await markRawEvent(rawEvent?.id, "processed");
@@ -525,7 +786,11 @@ export const genericWebhook = async (req, res) => {
         }
 
         await markRawEvent(rawEvent?.id, "processed");
-        return res.status(200).json({ received: true });
+        return res.status(200).json({
+            received: true,
+            ...(orderResult ? { order: orderResult } : {}),
+            ...(bookingResult ? { booking: bookingResult } : {}),
+        });
     } catch (err) {
         await markRawEvent(rawEvent?.id, "failed", err.message);
         console.error("genericWebhook error:", err.message);

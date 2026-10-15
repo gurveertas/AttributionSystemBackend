@@ -124,7 +124,7 @@ We connect the client's conversion source so incoming transactions match against
 #### A. Shopify Stores
 1. In Shopify Admin, navigate to **Settings → Notifications → Webhooks**.
 2. Create Webhook:
-   - **Event:** `Order creation`
+   - **Event:** `Order paid`
    - **Format:** `JSON`
    - **URL:** `https://api.yourapp.com/api/connectors/shopify/webhook?connectorId=<connector_id>`
 3. Paste the shared secret into Elysium **Settings → Connectors**.
@@ -133,14 +133,19 @@ We connect the client's conversion source so incoming transactions match against
 1. Open Stripe Dashboard → **Developers → Webhooks**.
 2. Add Endpoint:
    - **Endpoint URL:** `https://api.yourapp.com/api/connectors/stripe/webhook?connectorId=<connector_id>`
-   - **Events to send:** `charge.succeeded`, `checkout.session.completed`, `charge.refunded`.
+   - **Events to send:** `checkout.session.completed`, `checkout.session.async_payment_succeeded` when delayed payment methods are enabled, and `charge.refunded`.
 3. Copy the Signing Secret (`whsec_...`) into Elysium.
+4. When creating the Checkout Session, attach the `/v1/checkout-sessions` token to its `metadata.attribution_token`. If handling PaymentIntent events as well, also copy the token to `payment_intent_data.metadata.attribution_token`.
 
 #### C. Zenoti (Salons, Spas & Medical Clinics)
 1. In Zenoti Admin, configure outgoing webhooks for:
    - **Appointment Created / Rescheduled**
    - **Invoice Closed / Paid**
 2. Target: `https://api.yourapp.com/api/connectors/zenoti/webhook?connectorId=<connector_id>`.
+3. Configure a matching HMAC webhook secret and send its SHA-256 signature in `x-zenoti-signature`.
+
+#### D. Other Payment Providers
+Razorpay, PayPal, WooCommerce, Square, and custom HMAC integrations are supported by their generated connector URLs. Provider-specific configuration and checkout-token mappings are documented in [API_DOCUMENTATION.md](./API_DOCUMENTATION.md#11-inbound-webhook-integrations-api-connectors).
 
 ---
 

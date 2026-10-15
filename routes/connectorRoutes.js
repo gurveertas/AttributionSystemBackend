@@ -7,34 +7,24 @@
  */
 
 import { Router } from "express";
-import express from "express";
 import {
     stripeWebhook,
     shopifyWebhook,
     zenotiWebhook,
     razorpayWebhook,
+    paypalWebhook,
     genericWebhook,
 } from "../controllers/connectorController.js";
 
 const router = Router();
 
-// Stripe needs the raw body for signature verification.
-// Mount a raw body parser just for the Stripe route.
-router.post("/stripe/webhook",
-    express.raw({ type: "application/json" }),
-    (req, res, next) => {
-        // Store raw body for signature verification, parse JSON body
-        req.rawBody = req.body.toString("utf8");
-        try { req.body = JSON.parse(req.rawBody); } catch { /* let handler deal with it */ }
-        next();
-    },
-    stripeWebhook
-);
-
-// All others use standard JSON parsing (already applied globally)
+router.post("/stripe/webhook", stripeWebhook);
 router.post("/shopify/webhook", shopifyWebhook);
 router.post("/zenoti/webhook", zenotiWebhook);
 router.post("/razorpay/webhook", razorpayWebhook);
+router.post("/paypal/webhook", paypalWebhook);
 router.post("/generic/webhook", genericWebhook);
+router.post("/woocommerce/webhook", genericWebhook);
+router.post("/square/webhook", genericWebhook);
 
 export default router;

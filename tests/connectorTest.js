@@ -3,7 +3,7 @@
 //   BASE_URL=http://localhost:3000 \
 //   STRIPE_CONNECTOR_ID=... STRIPE_WEBHOOK_SECRET=whsec_test_123 \
 //   SHOPIFY_CONNECTOR_ID=... SHOPIFY_SHARED_SECRET=... \
-//   ZENOTI_CONNECTOR_ID=... \
+//   ZENOTI_CONNECTOR_ID=... ZENOTI_WEBHOOK_SECRET=... \
 //   RAZORPAY_CONNECTOR_ID=... RAZORPAY_WEBHOOK_SECRET=... \
 //   GENERIC_CONNECTOR_ID=... GENERIC_WEBHOOK_SECRET=... \
 //   node test-connectors.js
@@ -25,7 +25,10 @@ const C = {
     id: process.env.SHOPIFY_CONNECTOR_ID,
     secret: process.env.SHOPIFY_SHARED_SECRET || "shopify_test_secret",
   },
-  zenoti: { id: process.env.ZENOTI_CONNECTOR_ID },
+  zenoti: {
+    id: process.env.ZENOTI_CONNECTOR_ID,
+    secret: process.env.ZENOTI_WEBHOOK_SECRET || "zenoti_test_secret",
+  },
   razorpay: {
     id: process.env.RAZORPAY_CONNECTOR_ID,
     secret: process.env.RAZORPAY_WEBHOOK_SECRET || "rzp_test_secret",
@@ -176,41 +179,43 @@ test("shopify", "refunds/create (needs a matching prior order)", 200, () => {
   });
 });
 
-// Zenoti (no signature check)
+// Zenoti
+const zenotiPost = (payload) => {
+  const body = JSON.stringify(payload);
+  return post(`/api/connectors/zenoti/webhook?connectorId=${C.zenoti.id}`, {
+    headers: { "x-zenoti-signature": hmac(C.zenoti.secret, body, "hex") },
+    body,
+  });
+};
+
 test("zenoti", "appointment.created with attribution token in notes", 200, () =>
-  post(`/api/connectors/zenoti/webhook?connectorId=${C.zenoti.id}`, {
-    body: JSON.stringify({
-      event_type: "appointment.created",
-      appointment: {
-        id: `A${RUN_ID}`,
-        start_time: "2026-10-20T10:00:00Z",
-        price: 80,
-        notes: "attribution_token:3f2a1b4c-0000-4000-8000-000000000001",
-        guest: { email: "zenoti@test.com" },
-        service: { name: "Haircut" },
-      },
-    }),
+  zenotiPost({
+    event_type: "appointment.created",
+    appointment: {
+      id: `A${RUN_ID}`,
+      start_time: "2026-10-20T10:00:00Z",
+      price: 80,
+      notes: "attribution_token:3f2a1b4c-0000-4000-8000-000000000001",
+      guest: { email: "zenoti@test.com" },
+      service: { name: "Haircut" },
+    },
   }));
 
 test("zenoti", "invoice.paid", 200, () =>
-  post(`/api/connectors/zenoti/webhook?connectorId=${C.zenoti.id}`, {
-    body: JSON.stringify({
-      event_type: "invoice.paid",
-      invoice: {
-        id: `INV${RUN_ID}`,
-        total: 80,
-        sub_total: 75,
-        tax: 5,
-        date: new Date().toISOString(),
-        guest: { email: "zenoti@test.com" },
-      },
-    }),
+  zenotiPost({
+    event_type: "invoice.paid",
+    invoice: {
+      id: `INV${RUN_ID}`,
+      total: 80,
+      sub_total: 75,
+      tax: 5,
+      date: new Date().toISOString(),
+      guest: { email: "zenoti@test.com" },
+    },
   }));
 
 test("zenoti", "unknown event type is accepted", 200, () =>
-  post(`/api/connectors/zenoti/webhook?connectorId=${C.zenoti.id}`, {
-    body: JSON.stringify({ event_type: "guest.updated", guest: { id: 1 } }),
-  }));
+  zenotiPost({ event_type: "guest.updated", guest: { id: 1 } }));
 
 // Razorpay
 const razorpayBody = (id) =>

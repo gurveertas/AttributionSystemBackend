@@ -205,6 +205,7 @@ export const companyLogin = async (req, res) => {
         genToken(user, res);
         return res.status(200).json({
             message: "User verified",
+            status: user.status,
         });
     } catch (err) {
         console.log(err);
