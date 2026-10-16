@@ -470,6 +470,7 @@ model Customer {
   workspaceId     String
   workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   emailHash       String?
+  emailEnc        Bytes?
   phoneHash       String?
   externalIds     Json?
   firstSeenAt     TimestamptzString  @default(now())

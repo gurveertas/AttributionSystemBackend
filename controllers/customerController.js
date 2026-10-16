@@ -1,14 +1,24 @@
 /**
  * Customers Controller  —  GET /v1/customers  |  GET /v1/customers/:id/journey
  *
- * Public API read endpoints for customers and their attribution journeys.
- * Auth: API key (publishable or secret) via apiKeyAuth middleware.
+ * Customer and attribution journey endpoints are shared by the API-key and
+ * cookie-authenticated workspace routes. Email is returned only to user sessions.
  */
 
 import { db } from "../src/prisma/db.js";
+import { decryptSecret } from "../utils/crypto.js";
+
+const serializeCustomer = (customer, includeEmail) => ({
+    id: customer.id,
+    ...(includeEmail ? { email: customer.emailEnc ? decryptSecret(customer.emailEnc) : null } : {}),
+    firstSeenAt: customer.firstSeenAt,
+    firstPurchaseAt: customer.firstPurchaseAt ?? null,
+    lastPurchaseAt: customer.lastPurchaseAt ?? null,
+    externalIds: customer.externalIds ?? null,
+});
 
 /**
- * GET /v1/customers — list customers for this workspace
+ * GET /v1/customers or /api/workspace/customers — list workspace customers
  */
 export const listCustomers = async (req, res) => {
     try {
@@ -16,6 +26,7 @@ export const listCustomers = async (req, res) => {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
         const offset = (page - 1) * limit;
+        const includeEmail = Boolean(req.user);
 
         // Base query: only non-merged customers for this workspace
         let query = db.orm.public.Customer
@@ -33,13 +44,7 @@ export const listCustomers = async (req, res) => {
                 .offset(offset)
                 .all();
 
-            const data = customers.map((c) => ({
-                id: c.id,
-                firstSeenAt: c.firstSeenAt,
-                firstPurchaseAt: c.firstPurchaseAt ?? null,
-                lastPurchaseAt: c.lastPurchaseAt ?? null,
-                externalIds: c.externalIds ?? null,
-            }));
+            const data = customers.map((customer) => serializeCustomer(customer, includeEmail));
 
             return res.status(200).json({
                 data,
@@ -62,13 +67,9 @@ export const listCustomers = async (req, res) => {
 
         customers.sort((a, b) => String(b.firstSeenAt).localeCompare(String(a.firstSeenAt)));
         const total = customers.length;
-        const data = customers.slice(offset, offset + limit).map((c) => ({
-            id: c.id,
-            firstSeenAt: c.firstSeenAt,
-            firstPurchaseAt: c.firstPurchaseAt ?? null,
-            lastPurchaseAt: c.lastPurchaseAt ?? null,
-            externalIds: c.externalIds ?? null,
-        }));
+        const data = customers
+            .slice(offset, offset + limit)
+            .map((customer) => serializeCustomer(customer, includeEmail));
 
         return res.status(200).json({
             data,
@@ -133,6 +134,9 @@ export const getCustomerJourney = async (req, res) => {
         return res.status(200).json({
             customer: {
                 id: customer.id,
+                ...(req.user
+                    ? { email: customer.emailEnc ? decryptSecret(customer.emailEnc) : null }
+                    : {}),
                 firstSeenAt: customer.firstSeenAt,
                 firstPurchaseAt: customer.firstPurchaseAt ?? null,
                 lastPurchaseAt: customer.lastPurchaseAt ?? null,

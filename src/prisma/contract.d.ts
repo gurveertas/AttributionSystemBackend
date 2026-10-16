@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'0ee86c45a1574c204800f00246c616eea709679d3a6daa07c128565fdc3af0e5'>;
+  StorageHashBase<'426fa60d64f5cb1619e327441a94306f69c3683d9f7d675941fa1ff78de66002'>;
 export type ExecutionHash =
   ExecutionHashBase<'0268444463b3e0797f12cb3f8dc615209ffc871721a9f371e66a4b9dd56d3f53'>;
 export type ProfileHash =
@@ -361,6 +361,7 @@ export type FieldOutputTypes = {
     };
     readonly Customer: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly emailEnc: CodecTypes['pg/bytea@1']['output'] | null;
       readonly emailHash: CodecTypes['pg/text@1']['output'] | null;
       readonly externalIds: CodecTypes['pg/json@1']['output'] | null;
       readonly firstPurchaseAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
@@ -721,6 +722,7 @@ export type FieldInputTypes = {
     };
     readonly Customer: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly emailEnc: CodecTypes['pg/bytea@1']['input'] | null;
       readonly emailHash: CodecTypes['pg/text@1']['input'] | null;
       readonly externalIds: CodecTypes['pg/json@1']['input'] | null;
       readonly firstPurchaseAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
@@ -1081,6 +1083,7 @@ export type StorageColumnTypes = {
     };
     readonly Customer: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly emailEnc: CodecTypes['pg/bytea@1']['output'] | null;
       readonly emailHash: CodecTypes['pg/text@1']['output'] | null;
       readonly externalIds: CodecTypes['pg/json@1']['output'] | null;
       readonly firstPurchaseAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
@@ -1441,6 +1444,7 @@ export type StorageColumnInputTypes = {
     };
     readonly Customer: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly emailEnc: CodecTypes['pg/bytea@1']['input'] | null;
       readonly emailHash: CodecTypes['pg/text@1']['input'] | null;
       readonly externalIds: CodecTypes['pg/json@1']['input'] | null;
       readonly firstPurchaseAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
@@ -1824,6 +1828,7 @@ export namespace Models {
   };
   export type public_Customer = {
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    emailEnc: CodecTypes['pg/bytea@1']['output'] | null;
     emailHash: CodecTypes['pg/text@1']['output'] | null;
     externalIds: CodecTypes['pg/json@1']['output'] | null;
     firstPurchaseAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
@@ -3205,6 +3210,12 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                  readonly many: false;
+                };
+                readonly emailEnc: {
+                  readonly dataType: 'pg/bytea';
+                  readonly codecId: 'pg/bytea@1';
+                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly emailHash: {
@@ -6197,6 +6208,10 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
+              readonly emailEnc: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bytea@1' };
+              };
               readonly emailHash: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -6325,6 +6340,7 @@ type ContractBase = Omit<
               readonly namespaceId: 'public';
               readonly fields: {
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly emailEnc: { readonly column: 'emailEnc' };
                 readonly emailHash: { readonly column: 'emailHash' };
                 readonly externalIds: { readonly column: 'externalIds' };
                 readonly firstPurchaseAt: { readonly column: 'firstPurchaseAt' };

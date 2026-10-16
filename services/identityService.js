@@ -11,6 +11,7 @@
 
 import crypto from "crypto";
 import { db } from "../src/prisma/db.js";
+import { encryptSecret } from "../utils/crypto.js";
 
 export const hashIdentifier = (value) =>
     crypto.createHash("sha256").update(String(value).trim().toLowerCase()).digest("hex");
@@ -36,7 +37,14 @@ export async function resolveOrCreateCustomer(client, workspaceId, identifiers =
     // Try email hash first
     if (emailHash) {
         const existing = await orm.Customer.where({ workspaceId, emailHash }).first();
-        if (existing) return { customer: existing, isNew: false };
+        if (existing) {
+            if (email && !existing.emailEnc) {
+                await orm.Customer.where({ id: existing.id }).update({
+                    emailEnc: encryptSecret(String(email).trim().toLowerCase()),
+                });
+            }
+            return { customer: existing, isNew: false };
+        }
     }
 
     // Try phone hash second
@@ -44,8 +52,13 @@ export async function resolveOrCreateCustomer(client, workspaceId, identifiers =
         const existing = await orm.Customer.where({ workspaceId, phoneHash }).first();
         if (existing) {
             // Optionally attach email hash to existing record if not already set
-            if (emailHash && !existing.emailHash) {
-                await orm.Customer.where({ id: existing.id }).update({ emailHash });
+            const updates = {};
+            if (emailHash && !existing.emailHash) updates.emailHash = emailHash;
+            if (email && !existing.emailEnc) {
+                updates.emailEnc = encryptSecret(String(email).trim().toLowerCase());
+            }
+            if (Object.keys(updates).length > 0) {
+                await orm.Customer.where({ id: existing.id }).update(updates);
             }
             return { customer: existing, isNew: false };
         }
@@ -63,13 +76,25 @@ export async function resolveOrCreateCustomer(client, workspaceId, identifiers =
                 return false;
             }
         });
-        if (matched) return { customer: matched, isNew: false };
+        if (matched) {
+            const updates = {};
+            if (emailHash && !matched.emailHash) updates.emailHash = emailHash;
+            if (email && !matched.emailEnc) {
+                updates.emailEnc = encryptSecret(String(email).trim().toLowerCase());
+            }
+            if (phoneHash && !matched.phoneHash) updates.phoneHash = phoneHash;
+            if (Object.keys(updates).length > 0) {
+                await orm.Customer.where({ id: matched.id }).update(updates);
+            }
+            return { customer: matched, isNew: false };
+        }
     }
 
     // Create new customer
     const newCustomer = await orm.Customer.create({
         workspaceId,
         emailHash: emailHash ?? null,
+        emailEnc: email ? encryptSecret(String(email).trim().toLowerCase()) : null,
         phoneHash: phoneHash ?? null,
         externalIds: externalId ? { [externalIdKey]: externalId } : null,
     });

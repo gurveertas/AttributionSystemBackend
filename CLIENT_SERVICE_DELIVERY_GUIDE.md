@@ -113,7 +113,7 @@ if (window.attribution && window.attribution.identify) {
 ```
 
 > [!NOTE]
-> All email addresses and phone numbers are normalized (trimmed, lowercased) and cryptographically hashed with **SHA-256** prior to database insertion. Raw PII is never stored in plain text.
+> Email addresses and phone numbers are normalized and cryptographically hashed with **SHA-256** for identity matching. Email addresses are also stored encrypted at rest so authenticated company users can view them in customer records; phone numbers remain hash-only.
 
 ---
 

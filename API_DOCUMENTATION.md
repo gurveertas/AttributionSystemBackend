@@ -804,6 +804,11 @@ Returns fractional credits for an order under each attribution model.
   * **Response `201 Created`:** Includes `id` / `refundId`, `orderId`, `externalOrderId`, `externalId`, and updated `orderStatus`, plus the refund amount and currency. A duplicate refund returns the existing refund and order IDs with HTTP `200`.
 
 ### 8.10 Customers & Attribution Journey APIs
+* **Company customer list:** `GET /api/workspace/customers`
+  * **Auth:** Cookie (`user_token`), `company_admin` or `company_viewer`
+  * **Response:** Includes `email` for newly received addresses. Existing customers only have an email hash, so their email remains `null` until received again from a payment/booking source.
+  * Emails are encrypted at rest and are not returned by the API-key-authenticated `/v1/customers` endpoints.
+* **Company customer journey:** `GET /api/workspace/customers/:id/journey` uses the same cookie auth and includes the customer's email when available.
 * **List Customers:** `GET /v1/customers`
   * **Query:** `externalId`, `externalIdKey`, `page`, `limit`
 * **Get Customer Journey:** `GET /v1/customers/:id/journey`

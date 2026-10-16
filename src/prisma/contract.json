@@ -1891,6 +1891,13 @@
                   "kind": "scalar"
                 }
               },
+              "emailEnc": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/bytea@1",
+                  "kind": "scalar"
+                }
+              },
               "emailHash": {
                 "nullable": true,
                 "type": {
@@ -2060,6 +2067,9 @@
               "fields": {
                 "createdAt": {
                   "column": "createdAt"
+                },
+                "emailEnc": {
+                  "column": "emailEnc"
                 },
                 "emailHash": {
                   "column": "emailHash"
@@ -6291,6 +6301,11 @@
                   },
                   "nullable": false
                 },
+                "emailEnc": {
+                  "codecId": "pg/bytea@1",
+                  "dataType": "pg/bytea",
+                  "nullable": true
+                },
                 "emailHash": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -8695,7 +8710,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "0ee86c45a1574c204800f00246c616eea709679d3a6daa07c128565fdc3af0e5"
+    "storageHash": "426fa60d64f5cb1619e327441a94306f69c3683d9f7d675941fa1ff78de66002"
   },
   "execution": {
     "executionHash": "0268444463b3e0797f12cb3f8dc615209ffc871721a9f371e66a4b9dd56d3f53",
