@@ -511,6 +511,7 @@ export const razorpayWebhook = async (req, res) => {
     }
 
     const payload = req.body;
+    console.log(payload);
     const eventType = payload?.event || "unknown";
     const rawEvent = await saveRawEvent(workspaceId, connectorId, "razorpay", eventType, payload);
     void orm().Connector.where({ id: connectorId }).update({ lastEventAt: new Date().toISOString() }).catch(() => {});

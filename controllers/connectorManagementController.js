@@ -151,7 +151,6 @@ export const deleteConnector = async (req, res) => {
         const workspaceId = req.user.workspaceId;
         const connector = await orm().Connector.where({ id: req.params.id, workspaceId }).first();
         if (!connector) return res.status(404).json({ message: "Connector not found" });
-        console.log(`Deleting connector ${connector.id} (${connector.name}) for workspace ${workspaceId}`);
         await db.transaction(async (tx) => {
             await tx.orm.public.Connector.where({ id: connector.id }).delete();
             await tx.orm.public.AuditLog.create({

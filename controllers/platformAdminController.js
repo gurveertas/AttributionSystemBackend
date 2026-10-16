@@ -196,7 +196,7 @@ export const getPlatformDashboard = async (req, res) => {
 
         auditEvents: logs.length,
       },
-    });
+    })
   } catch (error) {
     console.error("getPlatformDashboard:", error.message);
 
