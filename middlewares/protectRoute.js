@@ -24,6 +24,7 @@ export const protectRoute = async (req, res, next) => {
       name: user.name,
       email: user.email,
     };
+    req.workspaceId = user.workspaceId ?? null;
     return next();
   } catch (error) {
     console.error("protectRoute error:", error.message);

@@ -511,8 +511,7 @@ export const razorpayWebhook = async (req, res) => {
     }
 
     const payload = req.body;
-    console.log("Razorpay webhook body:", JSON.stringify(payload, null, 2));
-    
+
     const eventType = payload?.event || "unknown";
     const rawEvent = await saveRawEvent(workspaceId, connectorId, "razorpay", eventType, payload);
     void orm().Connector.where({ id: connectorId }).update({ lastEventAt: new Date().toISOString() }).catch(() => {});
@@ -521,7 +520,10 @@ export const razorpayWebhook = async (req, res) => {
         let orderResult = null;
         if (eventType === "payment.captured" || eventType === "order.paid") {
             const payment = payload.payload?.payment?.entity || {};
-            const checkoutToken = payment.notes?.attribution_token || null;
+            const checkoutToken = payment.notes?.attribution_token
+                || payment.notes?.checkout_token
+                || payment.notes?.sessionToken
+                || null;
             const email = payment.email || null;
             const phone = payment.contact || null;
 

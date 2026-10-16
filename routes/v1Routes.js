@@ -1,9 +1,9 @@
 /**
  * Public V1 API Routes
  *
- * All routes are authenticated via API key (publishable or secret).
+ * Tracking and data APIs use API keys. Report APIs use the authenticated
+ * company user's session cookie and role.
  * The v1Cors middleware handles CORS for browser-based calls.
- * The apiKeyAuth middleware sets req.workspaceId and req.apiKey.
  *
  * Write endpoints (SDK + connectors):
  *   POST /v1/touches
@@ -32,6 +32,7 @@
 
 import { Router } from "express";
 import { v1Cors, apiKeyAuth } from "../middlewares/apiKeyAuth.js";
+import { protectRoute, requireRole } from "../middlewares/protectRoute.js";
 import { recordTouch, identifyVisitor, createCheckoutSession } from "../controllers/trackingController.js";
 import { createOrder, updateOrder, listOrders, getOrderAttribution } from "../controllers/orderController.js";
 import { createBooking, updateBooking, listBookings, listUpcomingBookings } from "../controllers/bookingController.js";
@@ -80,14 +81,16 @@ router.get("/customers/:id/journey", apiKeyAuth(["publishable", "secret"]), getC
 router.get("/bookings", apiKeyAuth(["publishable", "secret"]), listBookings);
 router.get("/bookings/upcoming", apiKeyAuth(["publishable", "secret"]), listUpcomingBookings);
 
-// ── Report endpoints ───────────────────────────────────────────────────────
+// ── Session-authenticated report endpoints ─────────────────────────────────
 
-router.get("/reports/dashboard", apiKeyAuth(["publishable", "secret"]), getDashboardOverview);
-router.get("/reports/summary", apiKeyAuth(["publishable", "secret"]), getSummaryReport);
-router.get("/reports/channels", apiKeyAuth(["publishable", "secret"]), getChannelsReport);
-router.get("/reports/campaigns", apiKeyAuth(["publishable", "secret"]), getCampaignsReport);
-router.get("/reports/locations", apiKeyAuth(["publishable", "secret"]), getLocationsReport);
-router.get("/reports/trend", apiKeyAuth(["publishable", "secret"]), getTrendReport);
-router.get("/reports/customers", apiKeyAuth(["publishable", "secret"]), getCustomersReport);
+const reportAccess = [protectRoute, requireRole("company_admin", "company_viewer")];
+
+router.get("/reports/dashboard", ...reportAccess, getDashboardOverview);
+router.get("/reports/summary", ...reportAccess, getSummaryReport);
+router.get("/reports/channels", ...reportAccess, getChannelsReport);
+router.get("/reports/campaigns", ...reportAccess, getCampaignsReport);
+router.get("/reports/locations", ...reportAccess, getLocationsReport);
+router.get("/reports/trend", ...reportAccess, getTrendReport);
+router.get("/reports/customers", ...reportAccess, getCustomersReport);
 
 export default router;

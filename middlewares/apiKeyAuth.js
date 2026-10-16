@@ -21,8 +21,9 @@ export function v1Cors(req, res, next) {
     if (origin) {
         res.setHeader("Access-Control-Allow-Origin", origin);
         res.setHeader("Vary", "Origin");
+        res.setHeader("Access-Control-Allow-Credentials", "true");
         res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Api-Key");
-        res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
         res.setHeader("Access-Control-Max-Age", "600");
     }
     if (req.method === "OPTIONS") return res.status(204).end();
