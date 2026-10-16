@@ -71,19 +71,19 @@ router.patch("/bookings/:id", apiKeyAuth(["publishable", "secret"]), updateBooki
 router.post("/refunds", apiKeyAuth(["publishable", "secret"]), createRefund);
 
 // ── Read endpoints (secret key preferred, publishable allowed for now) ─────
+const reportAccess = [protectRoute, requireRole("company_admin", "company_viewer")];
 
-router.get("/orders", apiKeyAuth(["publishable", "secret"]), listOrders);
-router.get("/orders/:id/attribution", apiKeyAuth(["publishable", "secret"]), getOrderAttribution);
+router.get("/orders", ...reportAccess, listOrders);
+router.get("/orders/:id/attribution", ...reportAccess, getOrderAttribution);
 
-router.get("/customers", apiKeyAuth(["publishable", "secret"]), listCustomers);
-router.get("/customers/:id/journey", apiKeyAuth(["publishable", "secret"]), getCustomerJourney);
+router.get("/customers", ...reportAccess, listCustomers);
+router.get("/customers/:id/journey", ...reportAccess, getCustomerJourney);
 
-router.get("/bookings", apiKeyAuth(["publishable", "secret"]), listBookings);
-router.get("/bookings/upcoming", apiKeyAuth(["publishable", "secret"]), listUpcomingBookings);
+router.get("/bookings", ...reportAccess, listBookings);
+router.get("/bookings/upcoming", ...reportAccess, listUpcomingBookings);
 
 // ── Session-authenticated report endpoints ─────────────────────────────────
 
-const reportAccess = [protectRoute, requireRole("company_admin", "company_viewer")];
 
 router.get("/reports/dashboard", ...reportAccess, getDashboardOverview);
 router.get("/reports/summary", ...reportAccess, getSummaryReport);
