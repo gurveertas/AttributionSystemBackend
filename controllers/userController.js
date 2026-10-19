@@ -206,7 +206,7 @@ export const addMember = async (req, res) => {
         const passHash = await bcrypt.hash(password, 10);
         const user = db.orm.public.User.create({
             workspaceId ,
-            workspace : req.user.workspace.name,
+            workspace : workspace.name,
             email,
             passwordHash : passHash,
             name,
