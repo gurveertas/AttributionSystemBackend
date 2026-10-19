@@ -44,7 +44,7 @@ import { listBookings, listUpcomingBookings } from "../controllers/bookingContro
 
 const router = Router();
 
-router.delete("/:workspaceId", deleteWorkspace);
+router.delete("/:workspaceId", protectRoute, deleteWorkspace);
 
 
 // ── Settings (company_admin only) ──────────────────────────────────────────
