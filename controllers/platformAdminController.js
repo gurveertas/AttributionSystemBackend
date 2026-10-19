@@ -436,6 +436,7 @@ const ALLOWED_WORKSPACE_SETTINGS = new Set([
   "consentMode",
   "rawRetentionMonths",
   "plan",
+  "status",
 ]);
 
 // PATCH /workspaces/:workspaceId/settings
@@ -459,7 +460,7 @@ export const updateWorkspaceSettings = async (req, res) => {
 
     delete changes.id;
     delete changes.slug;
-    delete changes.status;
+    // delete changes.status;
     delete changes.approvedAt;
     delete changes.approvedBy;
 
