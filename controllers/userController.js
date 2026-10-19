@@ -203,11 +203,12 @@ export const addMember = async (req, res) => {
         if(!name || !email || !password || !role){
             return res.status(400).json({message: "All credentials are required"});
         }
+        const normalizedEmail = email.trim().toLowerCase();
         const passHash = await bcrypt.hash(password, 10);
         const user = await db.orm.public.User.create({
             workspaceId ,
             workspace : workspace.name,
-            email,
+            email : normalizedEmail,
             passwordHash : passHash,
             name,
             role,
