@@ -195,7 +195,7 @@ export const addMember = async (req, res) => {
         if(!workspaceId){
             return res.status(400).json({message: "No workspace id in middleware or body"});
         }
-        const workspace = db.orm.public.Workspace.where({workspaceId});
+        const workspace = await db.orm.public.Workspace.where({workspaceId});
         if(!workspace){
             return res.status(404).json({message : "Workspace not found"});
         }
@@ -204,7 +204,7 @@ export const addMember = async (req, res) => {
             return res.status(400).json({message: "All credentials are required"});
         }
         const passHash = await bcrypt.hash(password, 10);
-        const user = db.orm.public.User.create({
+        const user = await db.orm.public.User.create({
             workspaceId ,
             workspace : workspace.name,
             email,
@@ -213,6 +213,7 @@ export const addMember = async (req, res) => {
             role,
             status : "active",
         });
+        return res.status(201).json({message : "member created succesfully"});
     } catch (error) {
         console.log(error);
         return res.status(500).json({message : "Internal server error in addMember"});
