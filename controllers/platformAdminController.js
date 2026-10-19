@@ -873,3 +873,19 @@ export const updatePlatformWebhook = async (req, res) => {
 export const getApiFromWorkspace = async (req, res) => {
   
 }
+export const deleteUser = async (req, res) => {
+  try {
+    const userRole = req.user.role;
+    if(userRole !== "platform_admin") return res.status(403).json({message : "Only platform admins can delete users"});
+    const userId = req.params.userId;
+    if(!userId){
+        return res.status(400).json({message : "No userId found in URL"});
+    }
+    const result = await orm().User.delete({id : userId});
+    return res.status(200).json({message : "User deleted succesfully"});
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({message : "Internal server error in delete user"});
+  }
+    
+}

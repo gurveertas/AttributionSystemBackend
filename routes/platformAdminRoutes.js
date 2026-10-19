@@ -13,6 +13,7 @@ import {
   setConnectorStatus,
   listPlatformWebhooks,
   updatePlatformWebhook,
+  deleteUser,
 } from "../controllers/platformAdminController.js";
 
 import { protectRoute, requireRole } from "../middlewares/protectRoute.js";
@@ -32,6 +33,7 @@ router.patch("/workspaces/:workspaceId/settings", updateWorkspaceSettings);
 router.get("/workspaces/:workspaceId/users", listWorkspaceUsers);
 
 router.patch("/users/:userId", updateUser);
+router.delete('/users/:userId', deleteUser);
 
 router.get("/api-keys", listPlatformApiKeys);
 router.post("/api-keys/:keyId/revoke", revokePlatformApiKey);

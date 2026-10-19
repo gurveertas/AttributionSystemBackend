@@ -220,3 +220,10 @@ export const addMember = async (req, res) => {
         return res.status(500).json({message : "Internal server error in addMember"});
     }
 }
+export const deleteUser = async (req, res) => {
+    const userId = req.params.userId;
+    if(!userId){
+        return res.status(400).json({message : "No userId found in URL"});
+    }
+    
+}
