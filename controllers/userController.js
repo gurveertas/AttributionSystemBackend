@@ -199,6 +199,10 @@ export const addMember = async (req, res) => {
         if(!workspace){
             return res.status(404).json({message : "Workspace not found"});
         }
+        const userRole = req.user.role;
+        if(userRole === "company_viewer"){
+            return res.status(400).json({message : "know your place, FOOL"});
+        }
         const {name, email, password, role} = req.body;
         if(!name || !email || !password || !role){
             return res.status(400).json({message: "All credentials are required"});
@@ -225,5 +229,5 @@ export const deleteUser = async (req, res) => {
     if(!userId){
         return res.status(400).json({message : "No userId found in URL"});
     }
-    
+
 }
