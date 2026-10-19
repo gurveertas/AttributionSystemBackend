@@ -881,11 +881,11 @@ export const deleteUser = async (req, res) => {
             });
         }
 
-        const userId = Number(req.params.userId);
+        const userId = req.params.userId;
 
-        if (!Number.isInteger(userId) || userId <= 0) {
+        if (!userId) {
             return res.status(400).json({
-                message: "Invalid userId"
+                message: "No user id given in URL"
             });
         }
 
