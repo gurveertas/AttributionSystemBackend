@@ -20,29 +20,29 @@ export const getWorkspaceDashboard = async (req, res) => {
       });
     }
 
-    const reason = String(req.query.reason ?? "").trim();
-    if (reason.length < 5) {
-      return res.status(400).json({
-        message: "Provide a reason of at least 5 characters.",
-      });
-    }
+    // const reason = String(req.query.reason ?? "").trim();
+    // if (reason.length < 5) {
+    //   return res.status(400).json({
+    //     message: "Provide a reason of at least 5 characters.",
+    //   });
+    // }
 
     const workspace = await orm().Workspace.where({ id: workspaceId }).first();
     if (!workspace) {
       return res.status(404).json({ message: "Workspace not found." });
     }
 
-    await orm().AuditLog.create({
-      workspaceId: workspace.id,
-      actorType: "platform_admin",
-      actorUserId: req.user.id,
-      action: "admin.workspace_dashboard_viewed",
-      targetType: "workspace",
-      targetId: workspace.id,
-      reason,
-      ip: req.ip ?? null,
-      userAgent: req.headers["user-agent"] ?? null,
-    });
+    // await orm().AuditLog.create({
+    //   workspaceId: workspace.id,
+    //   actorType: "platform_admin",
+    //   actorUserId: req.user.id,
+    //   action: "admin.workspace_dashboard_viewed",
+    //   targetType: "workspace",
+    //   targetId: workspace.id,
+    //   reason,
+    //   ip: req.ip ?? null,
+    //   userAgent: req.headers["user-agent"] ?? null,
+    // });
 
     return await getDashboardOverview(req, res, workspace.id);
   } catch (error) {
