@@ -195,7 +195,7 @@ export const addMember = async (req, res) => {
         if(!workspaceId){
             return res.status(400).json({message: "No workspace id in middleware or body"});
         }
-        const workspace = await db.orm.public.Workspace.where({workspaceId});
+        const workspace = await db.orm.public.Workspace.where({id : workspaceId});
         if(!workspace){
             return res.status(404).json({message : "Workspace not found"});
         }
