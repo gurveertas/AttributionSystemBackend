@@ -888,8 +888,7 @@ export const deleteUser = async (req, res) => {
                 message: "No user id given in URL"
             });
         }
-
-        await orm().User.delete({ id: userId });
+        await orm().User.where({ id: userId }).delete();
 
         return res.status(200).json({
             message: "User deleted successfully"
