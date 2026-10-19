@@ -6,6 +6,7 @@
  */
 
 import { db } from "../src/prisma/db.js";
+import bcrypt from 'bcryptjs';
 
 export const updateDetails = async (req, res) => {
     try {
@@ -188,3 +189,32 @@ export const updateDetails = async (req, res) => {
         });
     }
 };
+export const addMember = async (req, res) => {
+    try {
+        const workspaceId = req.user.workspaceId ? req.user.workspaceId : req.body.workspaceId;
+        if(!workspaceId){
+            return res.status(400).json({message: "No workspace id in middleware or body"});
+        }
+        const workspace = db.orm.public.Workspace.where({workspaceId});
+        if(!workspace){
+            return res.status(404).json({message : "Workspace not found"});
+        }
+        const {name, email, password, role} = req.body;
+        if(!name || !email || !password || !role){
+            return res.status(400).json({message: "All credentials are required"});
+        }
+        const passHash = await bcrypt.hash(password, 10);
+        const user = db.orm.public.User.create({
+            workspaceId ,
+            workspace : req.user.workspace.name,
+            email,
+            passwordHash : passHash,
+            name,
+            role,
+            status : "active",
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message : "Internal server error in addMember"});
+    }
+}
