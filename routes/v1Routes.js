@@ -71,7 +71,7 @@ router.patch("/bookings/:id", apiKeyAuth(["publishable", "secret"]), updateBooki
 router.post("/refunds", apiKeyAuth(["publishable", "secret"]), createRefund);
 
 // ── Read endpoints (secret key preferred, publishable allowed for now) ─────
-const reportAccess = [protectRoute, requireRole("company_admin", "company_viewer")];
+const reportAccess = [protectRoute, requireRole("company_admin", "company_viewer", "platform_admin")];
 
 router.get("/orders", ...reportAccess, listOrders);
 router.get("/orders/:id/attribution", ...reportAccess, getOrderAttribution);
