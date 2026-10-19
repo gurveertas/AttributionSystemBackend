@@ -43,11 +43,13 @@ export const deleteWorkspace = async (req, res) => {
     if(userRole === "company_viewer"){
       return res.status(403).json({message : "Know your place, FOOL"});
     }
-    const workspaceId = req.user.workspaceId ? req.user.workspaceId : req.params.workspaceId;
+    // console.log(req.params);
+    const workspaceId = req.user.workspaceId ? req.user.workspaceId : req.query.workspaceId;
     await orm().Workspace.where({id : workspaceId}).delete();
     return res.status(200).json({message : "Workspace deleted successfully"}); 
   } catch (error) {
-      return res.status(500).json({message : "Internal server error in delete workspace"})
+    console.log(error)
+    return res.status(500).json({message : "Internal server error in delete workspace"})
   }
 }
 
