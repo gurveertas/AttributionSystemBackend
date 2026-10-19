@@ -1052,6 +1052,7 @@ Tailored all-in-one endpoint returning the exact data structures rendered on the
 | `GET` | `/api/platform-admin/dashboard` | Overall platform KPIs & counts | None |
 | `GET` | `/api/platform-admin/workspaces` | List all client workspaces | `status`, `page`, `limit` |
 | `GET` | `/api/platform-admin/workspaces/:workspaceId` | Workspace detail & diagnostics | None |
+| `GET` | `/api/platform-admin/workspaces/:workspaceId/dashboard` | View a company's executive dashboard | Query: `reason` (at least 5 characters), plus standard dashboard filters |
 | `PATCH` | `/api/platform-admin/workspaces/:workspaceId/status` | Approve, suspend, or close workspace | Body: `{ status, reason }` |
 | `PATCH` | `/api/platform-admin/workspaces/:workspaceId/settings` | Admin override workspace settings | Body: `{ reason, ...settings }` |
 | `GET` | `/api/platform-admin/workspaces/:workspaceId/users` | List users of a specific workspace | None |
@@ -1064,6 +1065,7 @@ Tailored all-in-one endpoint returning the exact data structures rendered on the
 | `PATCH` | `/api/platform-admin/webhooks/:webhookId` | Toggle webhook active state | Body: `{ isActive, reason }` |
 
 *Note: All platform admin write actions require `reason` with at least 5 characters for auditing.*
+Viewing a company's dashboard requires a `reason` query parameter of at least 5 characters and is recorded in the audit log. The response uses the same metrics and filters as the company dashboard endpoint.
 
 ---
 

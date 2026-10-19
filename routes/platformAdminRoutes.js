@@ -15,6 +15,7 @@ import {
   updatePlatformWebhook,
   deleteUser,
 } from "../controllers/platformAdminController.js";
+import { getWorkspaceDashboard } from "../controllers/platformAdminDashboardController.js";
 
 import { protectRoute, requireRole } from "../middlewares/protectRoute.js";
 
@@ -28,6 +29,7 @@ router.get("/dashboard", getPlatformDashboard);
 
 router.get("/workspaces", listWorkspaces);
 router.get("/workspaces/:workspaceId", getWorkspaceDetails);
+router.get("/workspaces/:workspaceId/dashboard", getWorkspaceDashboard);
 router.patch("/workspaces/:workspaceId/status", setWorkspaceStatus);
 router.patch("/workspaces/:workspaceId/settings", updateWorkspaceSettings);
 router.get("/workspaces/:workspaceId/users", listWorkspaceUsers);

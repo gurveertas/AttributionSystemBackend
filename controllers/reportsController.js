@@ -408,10 +408,10 @@ export const getCustomersReport = async (req, res) => {
  *   - Revenue by Source (Google %, Direct %, Meta % horizontal bar)
  *   - Revenue by Platform Table (Platform, Conversions, Revenue, badge colors)
  */
-export const getDashboardOverview = async (req, res) => {
+export const getDashboardOverview = async (req, res, workspaceIdOverride = null) => {
     try {
-        const workspaceId = req.workspaceId || req.user?.workspaceId;
-        if (!workspaceId) return res.status(401).json({ message: "Workspace context required" });
+        const workspaceId = workspaceIdOverride ?? req.workspaceId ?? req.user?.workspaceId;
+        if (!workspaceId) return res.status(401).json({ message: "Workspace id required" });
 
         const { fromDate, toDate, model, locationId } = parseReportParams(req);
         const workspace = await db.orm.public.Workspace.where({ id: workspaceId }).first();
