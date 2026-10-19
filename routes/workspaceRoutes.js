@@ -9,6 +9,7 @@ import { Router } from "express";
 import { protectRoute, requireRole } from "../middlewares/protectRoute.js";
 import {
     getWorkspaceSettings,
+    deleteWorkspace,
     updateWorkspaceSettings,
     inviteUser,
     acceptInvite,
@@ -42,6 +43,9 @@ import { listOrders } from "../controllers/orderController.js";
 import { listBookings, listUpcomingBookings } from "../controllers/bookingController.js";
 
 const router = Router();
+
+router.delete("/:workspaceId", deleteWorkspace);
+
 
 // ── Settings (company_admin only) ──────────────────────────────────────────
 router.get("/settings", protectRoute, requireRole("company_admin"), getWorkspaceSettings);
