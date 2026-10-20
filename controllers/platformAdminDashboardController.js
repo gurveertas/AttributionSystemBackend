@@ -54,7 +54,7 @@ export const getWorkspaceDashboard = async (req, res) => {
   }
 };
 
-export const getWorkspaceCustomersReport = async (req, res) => {
+export const listCustomerView = async (req, res) => {
   try {
     if (req.user?.role !== "platform_admin") {
       return res.status(403).json({ message: "Platform admins only" });
