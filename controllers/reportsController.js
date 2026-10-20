@@ -408,9 +408,15 @@ export const getCustomersReport = async (req, res, WID) => {
  *   - Revenue by Source (Google %, Direct %, Meta % horizontal bar)
  *   - Revenue by Platform Table (Platform, Conversions, Revenue, badge colors)
  */
-export const getDashboardOverview = async (req, res, workspaceIdOverride = null) => {
+export const getDashboardOverview = async (req, res, WID) => {
     try {
-        const workspaceId = workspaceIdOverride ? req.user?.workspaceId : null;
+        const role = req.user?.role;
+        const workspaceId = null;
+        if(role === "platform_admin"){
+            workspaceId = WID;
+        }else{
+            workspaceId = req.user?.workspaceId;
+        }
         if (!workspaceId) return res.status(401).json({ message: "Workspace id required" });
 
         const { fromDate, toDate, model, locationId } = parseReportParams(req);
