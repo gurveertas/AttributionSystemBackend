@@ -4,7 +4,7 @@ import { listCustomers } from "./customerController.js";
 
 const orm = () => db.orm.public;
 
-const commonChecks = async (req) => {
+const commonChecks = async (req, res) => {
   try {
     if (req.user?.role !== "platform_admin") {
         return res.status(403).json({ message: "Platform admins only" });
@@ -33,7 +33,7 @@ const commonChecks = async (req) => {
 
 export const getWorkspaceDashboard = async (req, res) => {
   try {
-    const workspace = commonChecks(req);
+    const workspace = await commonChecks(req, res);
     // const reason = String(req.query.reason ?? "").trim();
     // if (reason.length < 5) {
     //   return res.status(400).json({
@@ -64,7 +64,7 @@ export const getWorkspaceDashboard = async (req, res) => {
 
 export const listCustomerView = async (req, res) => {
   try {
-    const workspace = commonChecks(req);
+    const workspace = await commonChecks(req, res);
     return await listCustomers(req, res, workspace.id);
   } catch (error) {
     console.error("getCustomerReport:", error.message);
@@ -76,7 +76,7 @@ export const listCustomerView = async (req, res) => {
 
 export const getSummaryReportView = async (req, res) => {
   try {
-    const workspace = commonChecks(req);
+    const workspace = await commonChecks(req, res);
     return await getSummaryReport(req, res, workspace.id);
   } catch (error) {
     console.error("getSummaryReport:", error.message);
@@ -88,7 +88,7 @@ export const getSummaryReportView = async (req, res) => {
 
 export const getCampaignsReportView = async (req, res) => {
   try {
-    const workspace = commonChecks(req);
+    const workspace = await commonChecks(req, res);
     return await getCampaignsReport(req, res, workspace.id);
   } catch (error) {
     console.error("getCampaignsReport:", error.message);
@@ -100,7 +100,7 @@ export const getCampaignsReportView = async (req, res) => {
 
 export const getChannelsReportView = async (req, res) => {
   try {
-    const workspace = commonChecks(req);
+    const workspace = await commonChecks(req, res);
     return await getChannelsReport(req, res, workspace.id);
   } catch (error) {
     console.error("getChannelsReport:", error.message);
@@ -112,7 +112,7 @@ export const getChannelsReportView = async (req, res) => {
 
 export const getTrendReportView = async (req, res) => {
   try {
-    const workspace = commonChecks(req);
+    const workspace = await commonChecks(req, res);
     return await getTrendReport(req, res, workspace.id);
   } catch (error) {
     console.error("getTrendReport:", error.message);
@@ -124,7 +124,7 @@ export const getTrendReportView = async (req, res) => {
 
 export const getLocationsReportView = async (req, res) => {
   try {
-    const workspace = commonChecks(req);
+    const workspace = await commonChecks(req, res);
     return await getLocationsReport(req, res, workspace.id);
   } catch (error) {
     console.error("getLocationReport:", error.message);
@@ -136,7 +136,7 @@ export const getLocationsReportView = async (req, res) => {
 
 export const getCustomerReportView = async (req, res) => {
   try {
-    const workspace = commonChecks(req);
+    const workspace = await commonChecks(req, res);
     return await getCustomersReport(req, res, workspace.id);
   } catch (error) {
     console.error("getCustomersReport:", error.message);
