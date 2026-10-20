@@ -192,49 +192,83 @@ export const updateDetails = async (req, res) => {
 export const addMember = async (req, res) => {
     try {
         const workspaceId = req.user.workspaceId ? req.user.workspaceId : req.body.workspaceId;
-        if(!workspaceId){
-            return res.status(400).json({message: "No workspace id in middleware or body"});
+        if (!workspaceId) {
+            return res.status(400).json({ message: "No workspace id in middleware or body" });
         }
-        const workspace = await db.orm.public.Workspace.where({id : workspaceId});
-        if(!workspace){
-            return res.status(404).json({message : "Workspace not found"});
+        const workspace = await db.orm.public.Workspace.where({ id: workspaceId });
+        if (!workspace) {
+            return res.status(404).json({ message: "Workspace not found" });
         }
         const userRole = req.user.role;
-        if(userRole === "company_viewer"){
-            return res.status(400).json({message : "know your place, FOOL"});
+        if (userRole === "company_viewer") {
+            return res.status(400).json({ message: "know your place, FOOL" });
         }
-        const {name, email, password, role} = req.body;
-        if(!name || !email || !password || !role){
-            return res.status(400).json({message: "All credentials are required"});
+        const { name, email, password, role } = req.body;
+        if (!name || !email || !password || !role) {
+            return res.status(400).json({ message: "All credentials are required" });
         }
         const normalizedEmail = email.trim().toLowerCase();
         const passHash = await bcrypt.hash(password, 10);
         const user = await db.orm.public.User.create({
-            workspaceId ,
-            workspace : workspace.name,
-            email : normalizedEmail,
-            passwordHash : passHash,
+            workspaceId,
+            workspace: workspace.name,
+            email: normalizedEmail,
+            passwordHash: passHash,
             name,
             role,
-            status : "active",
+            status: "active",
         });
-        return res.status(201).json({message : "member created succesfully"});
+        return res.status(201).json({ message: "member created succesfully" });
     } catch (error) {
         console.log(error);
-        return res.status(500).json({message : "Internal server error in addMember"});
+        return res.status(500).json({ message: "Internal server error in addMember" });
     }
 }
-export const deleteUser = async (req, res) => {
+export const updateMember = async (req, res) => {
     try {
-        
-        const userId = req.params.userId;
-        if(!userId){
-            return res.status(400).json({message : "No userId found in URL"});
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(400).json({ message: "No user id found in request" });
         }
-        await db.orm.public.User.where({id : userId}).delete();
-        return res.status(200).json({message : "team memeber deleted successfully"});
+        const { role, name, status } = req.body;
+        if (!role && !name && !status) {
+            return res.status(400).json({ message: "At least one field is required to update" });
+        }
+        const updates = {};
+        if (role) {
+            updates.role = role;
+        }
+        if (name) {
+            updates.name = name;
+        }
+        if (status) {
+            updates.status = status;
+        }
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: "No valid fields to update" });
+        }
+        const updatedUser = await db.orm.public.User.where({ id: userId }).update(updates);
+        if (!updatedUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        return res.status(200).json({ message: "User updated successfully" });
     } catch (error) {
         console.log(error);
-        return res.status(500).json({message : "Internal server error in user deletion"});
+        return res.status(500).json({ message: "Internal server error in updateMember" });
+    }
+}
+
+export const deleteUser = async (req, res) => {
+    try {
+
+        const userId = req.params.userId;
+        if (!userId) {
+            return res.status(400).json({ message: "No userId found in URL" });
+        }
+        await db.orm.public.User.where({ id: userId }).delete();
+        return res.status(200).json({ message: "team memeber deleted successfully" });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal server error in user deletion" });
     }
 }
