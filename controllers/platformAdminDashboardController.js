@@ -4,34 +4,42 @@ import { listCustomers } from "./customerController.js";
 
 const orm = () => db.orm.public;
 
-export const getWorkspaceDashboard = async (req, res) => {
+const commonChecks = async (req) => {
   try {
     if (req.user?.role !== "platform_admin") {
-      return res.status(403).json({ message: "Platform admins only" });
-    }
+        return res.status(403).json({ message: "Platform admins only" });
+      }
+  
+      const workspaceId = req.params.workspaceId;
+      if (
+        typeof workspaceId !== "string" ||
+        workspaceId.trim().length === 0 ||
+        workspaceId.length > 200
+      ) {
+        return res.status(400).json({
+          message: "A valid workspace id is required.",
+        });
+      }
+      const workspace = await orm().Workspace.where({ id: workspaceId }).first();
+      if (!workspace) {
+        return res.status(404).json({ message: "Workspace not found." });
+      }
+      return workspace;
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({message : "Internal server error while common checks"});
+  }
+}
 
-    const workspaceId = req.params.workspaceId;
-    if (
-      typeof workspaceId !== "string" ||
-      workspaceId.trim().length === 0 ||
-      workspaceId.length > 200
-    ) {
-      return res.status(400).json({
-        message: "A valid workspace id is required.",
-      });
-    }
-
+export const getWorkspaceDashboard = async (req, res) => {
+  try {
+    const workspace = commonChecks(req);
     // const reason = String(req.query.reason ?? "").trim();
     // if (reason.length < 5) {
     //   return res.status(400).json({
     //     message: "Provide a reason of at least 5 characters.",
     //   });
     // }
-
-    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found." });
-    }
 
     // await orm().AuditLog.create({
     //   workspaceId: workspace.id,
@@ -56,24 +64,7 @@ export const getWorkspaceDashboard = async (req, res) => {
 
 export const listCustomerView = async (req, res) => {
   try {
-    if (req.user?.role !== "platform_admin") {
-      return res.status(403).json({ message: "Platform admins only" });
-    }
-
-    const workspaceId = req.params.workspaceId;
-    if (
-      typeof workspaceId !== "string" ||
-      workspaceId.trim().length === 0 ||
-      workspaceId.length > 200
-    ) {
-      return res.status(400).json({
-        message: "A valid workspace id is required.",
-      });
-    }
-    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found." });
-    }
+    const workspace = commonChecks(req);
     return await listCustomers(req, res, workspace.id);
   } catch (error) {
     console.error("getCustomerReport:", error.message);
@@ -85,24 +76,7 @@ export const listCustomerView = async (req, res) => {
 
 export const getSummaryReportView = async (req, res) => {
   try {
-    if (req.user?.role !== "platform_admin") {
-      return res.status(403).json({ message: "Platform admins only" });
-    }
-
-    const workspaceId = req.params.workspaceId;
-    if (
-      typeof workspaceId !== "string" ||
-      workspaceId.trim().length === 0 ||
-      workspaceId.length > 200
-    ) {
-      return res.status(400).json({
-        message: "A valid workspace id is required.",
-      });
-    }
-    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found." });
-    }
+    const workspace = commonChecks(req);
     return await getSummaryReport(req, res, workspace.id);
   } catch (error) {
     console.error("getSummaryReport:", error.message);
@@ -114,24 +88,7 @@ export const getSummaryReportView = async (req, res) => {
 
 export const getCampaignsReportView = async (req, res) => {
   try {
-    if (req.user?.role !== "platform_admin") {
-      return res.status(403).json({ message: "Platform admins only" });
-    }
-
-    const workspaceId = req.params.workspaceId;
-    if (
-      typeof workspaceId !== "string" ||
-      workspaceId.trim().length === 0 ||
-      workspaceId.length > 200
-    ) {
-      return res.status(400).json({
-        message: "A valid workspace id is required.",
-      });
-    }
-    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found." });
-    }
+    const workspace = commonChecks(req);
     return await getCampaignsReport(req, res, workspace.id);
   } catch (error) {
     console.error("getCampaignsReport:", error.message);
@@ -143,24 +100,7 @@ export const getCampaignsReportView = async (req, res) => {
 
 export const getChannelsReportView = async (req, res) => {
   try {
-    if (req.user?.role !== "platform_admin") {
-      return res.status(403).json({ message: "Platform admins only" });
-    }
-
-    const workspaceId = req.params.workspaceId;
-    if (
-      typeof workspaceId !== "string" ||
-      workspaceId.trim().length === 0 ||
-      workspaceId.length > 200
-    ) {
-      return res.status(400).json({
-        message: "A valid workspace id is required.",
-      });
-    }
-    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found." });
-    }
+    const workspace = commonChecks(req);
     return await getChannelsReport(req, res, workspace.id);
   } catch (error) {
     console.error("getChannelsReport:", error.message);
@@ -172,24 +112,7 @@ export const getChannelsReportView = async (req, res) => {
 
 export const getTrendReportView = async (req, res) => {
   try {
-    if (req.user?.role !== "platform_admin") {
-      return res.status(403).json({ message: "Platform admins only" });
-    }
-
-    const workspaceId = req.params.workspaceId;
-    if (
-      typeof workspaceId !== "string" ||
-      workspaceId.trim().length === 0 ||
-      workspaceId.length > 200
-    ) {
-      return res.status(400).json({
-        message: "A valid workspace id is required.",
-      });
-    }
-    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found." });
-    }
+    const workspace = commonChecks(req);
     return await getTrendReport(req, res, workspace.id);
   } catch (error) {
     console.error("getTrendReport:", error.message);
@@ -201,24 +124,7 @@ export const getTrendReportView = async (req, res) => {
 
 export const getLocationsReportView = async (req, res) => {
   try {
-    if (req.user?.role !== "platform_admin") {
-      return res.status(403).json({ message: "Platform admins only" });
-    }
-
-    const workspaceId = req.params.workspaceId;
-    if (
-      typeof workspaceId !== "string" ||
-      workspaceId.trim().length === 0 ||
-      workspaceId.length > 200
-    ) {
-      return res.status(400).json({
-        message: "A valid workspace id is required.",
-      });
-    }
-    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found." });
-    }
+    const workspace = commonChecks(req);
     return await getLocationsReport(req, res, workspace.id);
   } catch (error) {
     console.error("getLocationReport:", error.message);
@@ -230,24 +136,7 @@ export const getLocationsReportView = async (req, res) => {
 
 export const getCustomerReportView = async (req, res) => {
   try {
-    if (req.user?.role !== "platform_admin") {
-      return res.status(403).json({ message: "Platform admins only" });
-    }
-
-    const workspaceId = req.params.workspaceId;
-    if (
-      typeof workspaceId !== "string" ||
-      workspaceId.trim().length === 0 ||
-      workspaceId.length > 200
-    ) {
-      return res.status(400).json({
-        message: "A valid workspace id is required.",
-      });
-    }
-    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found." });
-    }
+    const workspace = commonChecks(req);
     return await getCustomersReport(req, res, workspace.id);
   } catch (error) {
     console.error("getCustomersReport:", error.message);
