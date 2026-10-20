@@ -20,9 +20,9 @@ const serializeCustomer = (customer, includeEmail) => ({
 /**
  * GET /v1/customers or /api/workspace/customers — list workspace customers
  */
-export const listCustomers = async (req, res) => {
+export const listCustomers = async (req, res, WID) => {
     try {
-        const workspaceId = req.workspaceId;
+        const workspaceId = req.workspaceId || WID;
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
         const offset = (page - 1) * limit;
