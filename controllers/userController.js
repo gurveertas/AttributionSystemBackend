@@ -225,9 +225,16 @@ export const addMember = async (req, res) => {
     }
 }
 export const deleteUser = async (req, res) => {
-    const userId = req.params.userId;
-    if(!userId){
-        return res.status(400).json({message : "No userId found in URL"});
+    try {
+        
+        const userId = req.params.userId;
+        if(!userId){
+            return res.status(400).json({message : "No userId found in URL"});
+        }
+        await db.orm.public.User.where({id : userId}).delete();
+        return res.status(200).json({message : "team memeber deleted successfully"});
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message : "Internal server error in user deletion"});
     }
-
 }
