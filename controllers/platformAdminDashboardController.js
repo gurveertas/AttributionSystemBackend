@@ -1,5 +1,5 @@
 import { db } from "../src/prisma/db.js";
-import { getDashboardOverview, getSummaryReport, getCampaignsReport, getChannelsReport, getLocationsReport, getTrendReport} from "./reportsController.js";
+import { getDashboardOverview, getSummaryReport, getCampaignsReport, getChannelsReport, getLocationsReport, getTrendReport, getCustomersReport} from "./reportsController.js";
 import { listCustomers } from "./customerController.js";
 
 const orm = () => db.orm.public;
@@ -224,6 +224,35 @@ export const getLocationsReportView = async (req, res) => {
     console.error("getLocationReport:", error.message);
     return res.status(500).json({
       message: "Could not get location report.",
+    });
+  }
+}
+
+export const getCustomerReportView = async (req, res) => {
+  try {
+    if (req.user?.role !== "platform_admin") {
+      return res.status(403).json({ message: "Platform admins only" });
+    }
+
+    const workspaceId = req.params.workspaceId;
+    if (
+      typeof workspaceId !== "string" ||
+      workspaceId.trim().length === 0 ||
+      workspaceId.length > 200
+    ) {
+      return res.status(400).json({
+        message: "A valid workspace id is required.",
+      });
+    }
+    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
+    if (!workspace) {
+      return res.status(404).json({ message: "Workspace not found." });
+    }
+    return await getCustomerReport(req, res, workspace.id);
+  } catch (error) {
+    console.error("getCustomerReport:", error.message);
+    return res.status(500).json({
+      message: "Could not get customer report.",
     });
   }
 }
