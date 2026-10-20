@@ -411,7 +411,7 @@ export const getCustomersReport = async (req, res, WID) => {
 export const getDashboardOverview = async (req, res, WID) => {
     try {
         const role = req.user?.role;
-        const workspaceId = null;
+        let workspaceId = null;
         if(role === "platform_admin"){
             workspaceId = WID;
         }else{
