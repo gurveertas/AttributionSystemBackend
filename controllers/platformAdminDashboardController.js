@@ -1,5 +1,5 @@
 import { db } from "../src/prisma/db.js";
-import { getDashboardOverview, getCustomersReport  } from "./reportsController.js";
+import { getDashboardOverview, getCustomersReport } from "./reportsController.js";
 
 const orm = () => db.orm.public;
 
@@ -69,7 +69,11 @@ export const getWorkspaceCustomersReport = async (req, res) => {
         message: "A valid workspace id is required.",
       });
     }
-      return await getCustomersReport(req, res, workspace.id);
+    const workspace = await orm().Workspace.where({ id: workspaceId }).first();
+    if (!workspace) {
+      return res.status(404).json({ message: "Workspace not found." });
+    }
+    return await getCustomersReport(req, res, workspace.id);
   } catch (error) {
     console.error("getCustomerReport:", error.message);
     return res.status(500).json({
