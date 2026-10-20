@@ -9,6 +9,7 @@ import authRoutes from './routes/authRoutes.js';
 import apiKeyRoutes from './routes/apiKeyRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import siteRoutes from './routes/siteRoutes.js';
+import workspaceViewRoutes from './routes/workspaceViewRoutes.js';
 import workspaceRoutes from './routes/workspaceRoutes.js';
 import platformAdminRoutes from './routes/platformAdminRoutes.js';
 import v1Routes from './routes/v1Routes.js';
@@ -67,6 +68,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/sites', siteRoutes);
 app.use('/api/workspace', workspaceRoutes);
 app.use('/api/platform-admin', platformAdminRoutes);
+app.use('/api/view', workspaceViewRoutes)
 
 // ── Public API (API-key-based auth) ────────────────────────────────────────
 app.use('/v1', v1Routes);

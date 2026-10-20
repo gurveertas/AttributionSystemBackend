@@ -1,5 +1,5 @@
 import { db } from "../src/prisma/db.js";
-import { getDashboardOverview } from "./reportsController.js";
+import { getDashboardOverview, getCustomersReport  } from "./reportsController.js";
 
 const orm = () => db.orm.public;
 
@@ -52,3 +52,28 @@ export const getWorkspaceDashboard = async (req, res) => {
     });
   }
 };
+
+export const getWorkspaceCustomersReport = async (req, res) => {
+  try {
+    if (req.user?.role !== "platform_admin") {
+      return res.status(403).json({ message: "Platform admins only" });
+    }
+
+    const workspaceId = req.params.workspaceId;
+    if (
+      typeof workspaceId !== "string" ||
+      workspaceId.trim().length === 0 ||
+      workspaceId.length > 200
+    ) {
+      return res.status(400).json({
+        message: "A valid workspace id is required.",
+      });
+    }
+      return await getCustomersReport(req, res, workspace.id);
+  } catch (error) {
+    console.error("getCustomerReport:", error.message);
+    return res.status(500).json({
+      message: "Could not load customer reports.",
+    });
+  }
+}
