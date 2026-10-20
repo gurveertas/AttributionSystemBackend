@@ -18,9 +18,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'426fa60d64f5cb1619e327441a94306f69c3683d9f7d675941fa1ff78de66002'>;
+  StorageHashBase<'9b29f5f99c1be4afd1f04e3b327b0dd28d2565e845ff23976ab9de0a7f6e4732'>;
 export type ExecutionHash =
-  ExecutionHashBase<'0268444463b3e0797f12cb3f8dc615209ffc871721a9f371e66a4b9dd56d3f53'>;
+  ExecutionHashBase<'3a248b67b4a032c80e1779c956c16abba54092d07f871e57fce47dc26566b4c9'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -373,6 +373,10 @@ export type FieldOutputTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly workspaceId: CodecTypes['pg/text@1']['output'];
     };
+    readonly Industry: {
+      readonly id: CodecTypes['pg/text@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+    };
     readonly Invite: {
       readonly acceptedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly allowedLocationIds: ReadonlyArray<CodecTypes['pg/text@1']['output']>;
@@ -432,6 +436,10 @@ export type FieldOutputTypes = {
       readonly quantity: CodecTypes['pg/int4@1']['output'];
       readonly totalMinorUnits: CodecTypes['pg/int8@1']['output'];
       readonly unitMinorUnits: CodecTypes['pg/int8@1']['output'];
+    };
+    readonly PaymentGateway: {
+      readonly id: CodecTypes['pg/text@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
     };
     readonly RawEvent: {
       readonly connectorId: CodecTypes['pg/text@1']['output'] | null;
@@ -734,6 +742,10 @@ export type FieldInputTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly workspaceId: CodecTypes['pg/text@1']['input'];
     };
+    readonly Industry: {
+      readonly id: CodecTypes['pg/text@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+    };
     readonly Invite: {
       readonly acceptedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly allowedLocationIds: ReadonlyArray<CodecTypes['pg/text@1']['input']>;
@@ -793,6 +805,10 @@ export type FieldInputTypes = {
       readonly quantity: CodecTypes['pg/int4@1']['input'];
       readonly totalMinorUnits: CodecTypes['pg/int8@1']['input'];
       readonly unitMinorUnits: CodecTypes['pg/int8@1']['input'];
+    };
+    readonly PaymentGateway: {
+      readonly id: CodecTypes['pg/text@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
     };
     readonly RawEvent: {
       readonly connectorId: CodecTypes['pg/text@1']['input'] | null;
@@ -1095,6 +1111,10 @@ export type StorageColumnTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly workspaceId: CodecTypes['pg/text@1']['output'];
     };
+    readonly Industry: {
+      readonly id: CodecTypes['pg/text@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
+    };
     readonly Invite: {
       readonly acceptedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly allowedLocationIds: ReadonlyArray<CodecTypes['pg/text@1']['output']>;
@@ -1154,6 +1174,10 @@ export type StorageColumnTypes = {
       readonly quantity: CodecTypes['pg/int4@1']['output'];
       readonly totalMinorUnits: CodecTypes['pg/int8@1']['output'];
       readonly unitMinorUnits: CodecTypes['pg/int8@1']['output'];
+    };
+    readonly PaymentGateway: {
+      readonly id: CodecTypes['pg/text@1']['output'];
+      readonly name: CodecTypes['pg/text@1']['output'];
     };
     readonly RawEvent: {
       readonly connectorId: CodecTypes['pg/text@1']['output'] | null;
@@ -1456,6 +1480,10 @@ export type StorageColumnInputTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly workspaceId: CodecTypes['pg/text@1']['input'];
     };
+    readonly Industry: {
+      readonly id: CodecTypes['pg/text@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
+    };
     readonly Invite: {
       readonly acceptedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly allowedLocationIds: ReadonlyArray<CodecTypes['pg/text@1']['input']>;
@@ -1515,6 +1543,10 @@ export type StorageColumnInputTypes = {
       readonly quantity: CodecTypes['pg/int4@1']['input'];
       readonly totalMinorUnits: CodecTypes['pg/int8@1']['input'];
       readonly unitMinorUnits: CodecTypes['pg/int8@1']['input'];
+    };
+    readonly PaymentGateway: {
+      readonly id: CodecTypes['pg/text@1']['input'];
+      readonly name: CodecTypes['pg/text@1']['input'];
     };
     readonly RawEvent: {
       readonly connectorId: CodecTypes['pg/text@1']['input'] | null;
@@ -1848,6 +1880,11 @@ export namespace Models {
     readonly [RelationKeys]?:
       'bookings' | 'mergedFrom' | 'mergedInto' | 'orders' | 'visitors' | 'workspace';
   };
+  export type public_Industry = {
+    id: CodecTypes['pg/text@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    readonly [RelationKeys]?: never;
+  };
   export type public_Invite = {
     acceptedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     allowedLocationIds: ReadonlyArray<CodecTypes['pg/text@1']['output']>;
@@ -1932,6 +1969,11 @@ export namespace Models {
     unitMinorUnits: CodecTypes['pg/int8@1']['output'];
     order: public_Order;
     readonly [RelationKeys]?: 'order';
+  };
+  export type public_PaymentGateway = {
+    id: CodecTypes['pg/text@1']['output'];
+    name: CodecTypes['pg/text@1']['output'];
+    readonly [RelationKeys]?: never;
   };
   export type public_RawEvent = {
     connectorId: CodecTypes['pg/text@1']['output'] | null;
@@ -2170,10 +2212,12 @@ export declare const models: {
     CheckoutSession: Models.public_CheckoutSession;
     Connector: Models.public_Connector;
     Customer: Models.public_Customer;
+    Industry: Models.public_Industry;
     Invite: Models.public_Invite;
     Location: Models.public_Location;
     Order: Models.public_Order;
     OrderItem: Models.public_OrderItem;
+    PaymentGateway: Models.public_PaymentGateway;
     RawEvent: Models.public_RawEvent;
     Refund: Models.public_Refund;
     Session: Models.public_Session;
@@ -3335,6 +3379,26 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly Industry: {
+              columns: {
+                readonly id: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly name: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [];
+              foreignKeys: readonly [];
+            };
             readonly Invite: {
               columns: {
                 readonly acceptedAt: {
@@ -3884,6 +3948,26 @@ type ContractBase = Omit<
                   };
                 },
               ];
+            };
+            readonly PaymentGateway: {
+              columns: {
+                readonly id: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly name: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [];
+              foreignKeys: readonly [];
             };
             readonly RawEvent: {
               columns: {
@@ -5292,10 +5376,15 @@ type ContractBase = Omit<
     };
     readonly Connector: { readonly namespace: 'public' & NamespaceId; readonly model: 'Connector' };
     readonly Customer: { readonly namespace: 'public' & NamespaceId; readonly model: 'Customer' };
+    readonly Industry: { readonly namespace: 'public' & NamespaceId; readonly model: 'Industry' };
     readonly Invite: { readonly namespace: 'public' & NamespaceId; readonly model: 'Invite' };
     readonly Location: { readonly namespace: 'public' & NamespaceId; readonly model: 'Location' };
     readonly Order: { readonly namespace: 'public' & NamespaceId; readonly model: 'Order' };
     readonly OrderItem: { readonly namespace: 'public' & NamespaceId; readonly model: 'OrderItem' };
+    readonly PaymentGateway: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'PaymentGateway';
+    };
     readonly RawEvent: { readonly namespace: 'public' & NamespaceId; readonly model: 'RawEvent' };
     readonly Refund: { readonly namespace: 'public' & NamespaceId; readonly model: 'Refund' };
     readonly Session: { readonly namespace: 'public' & NamespaceId; readonly model: 'Session' };
@@ -6354,6 +6443,27 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly Industry: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'Industry';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
+              };
+            };
+          };
           readonly Invite: {
             readonly fields: {
               readonly acceptedAt: {
@@ -6865,6 +6975,27 @@ type ContractBase = Omit<
                 readonly quantity: { readonly column: 'quantity' };
                 readonly totalMinorUnits: { readonly column: 'totalMinorUnits' };
                 readonly unitMinorUnits: { readonly column: 'unitMinorUnits' };
+              };
+            };
+          };
+          readonly PaymentGateway: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'PaymentGateway';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly name: { readonly column: 'name' };
               };
             };
           };
@@ -8522,6 +8653,14 @@ type ContractBase = Omit<
         {
           readonly onCreate: { readonly id: 'uuidv4'; readonly kind: 'generator' };
           readonly ref: {
+            readonly entry: 'Industry';
+            readonly field: 'id';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv4'; readonly kind: 'generator' };
+          readonly ref: {
             readonly entry: 'Invite';
             readonly field: 'id';
             readonly namespace: 'public';
@@ -8565,6 +8704,14 @@ type ContractBase = Omit<
           readonly onCreate: { readonly id: 'uuidv4'; readonly kind: 'generator' };
           readonly ref: {
             readonly entry: 'OrderItem';
+            readonly field: 'id';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv4'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'PaymentGateway';
             readonly field: 'id';
             readonly namespace: 'public';
           };

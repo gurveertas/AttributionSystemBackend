@@ -666,3 +666,13 @@ model RawEvent {
   @@index([status])
   @@index([connectorId])
 }
+
+model Industry{
+  id          String             @id @default(uuid())
+  name        String
+}
+
+model PaymentGateway{
+  id          String             @id @default(uuid())
+  name        String
+}
