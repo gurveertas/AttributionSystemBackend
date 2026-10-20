@@ -48,9 +48,9 @@ function buildOrdersQuery(workspaceId, fromDate, toDate, locationId = null) {
  * GET /v1/reports/summary
  * Overview: revenue, orders, new/returning customers, bookings.
  */
-export const getSummaryReport = async (req, res) => {
+export const getSummaryReport = async (req, res, WID) => {
     try {
-        const workspaceId = req.workspaceId;
+        const workspaceId = req.workspaceId || WID;
         const { fromDate, toDate, model, locationId } = parseReportParams(req);
 
         const workspace = await db.orm.public.Workspace.where({ id: workspaceId }).first();
@@ -144,9 +144,9 @@ export const getSummaryReport = async (req, res) => {
  * GET /v1/reports/channels
  * Revenue and orders broken down by channel.
  */
-export const getChannelsReport = async (req, res) => {
+export const getChannelsReport = async (req, res, WID) => {
     try {
-        const workspaceId = req.workspaceId;
+        const workspaceId = req.workspaceId || WID;
         const { fromDate, toDate, model, locationId } = parseReportParams(req);
 
         const orders = await buildOrdersQuery(workspaceId, fromDate, toDate, locationId).all();
@@ -219,9 +219,9 @@ export const getChannelsReport = async (req, res) => {
  * GET /v1/reports/campaigns
  * Revenue broken down by campaign.
  */
-export const getCampaignsReport = async (req, res) => {
+export const getCampaignsReport = async (req, res, WID) => {
     try {
-        const workspaceId = req.workspaceId;
+        const workspaceId = req.workspaceId || WID;
         const { fromDate, toDate, model, locationId } = parseReportParams(req);
 
         const orders = await buildOrdersQuery(workspaceId, fromDate, toDate, locationId).all();
@@ -278,9 +278,9 @@ export const getCampaignsReport = async (req, res) => {
  * GET /v1/reports/locations
  * Revenue and orders per location.
  */
-export const getLocationsReport = async (req, res) => {
+export const getLocationsReport = async (req, res, WID) => {
     try {
-        const workspaceId = req.workspaceId;
+        const workspaceId = req.workspaceId || WID;
         const { fromDate, toDate } = parseReportParams(req);
 
         const locations = await db.orm.public.Location.where({ workspaceId }).all();
@@ -323,9 +323,9 @@ export const getLocationsReport = async (req, res) => {
  * GET /v1/reports/trend
  * Daily revenue trend over the date range.
  */
-export const getTrendReport = async (req, res) => {
+export const getTrendReport = async (req, res, WID) => {
     try {
-        const workspaceId = req.workspaceId;
+        const workspaceId = req.workspaceId || WID;
         const { fromDate, toDate, locationId } = parseReportParams(req);
         const tz = req.query.tz || "UTC";
 
@@ -357,9 +357,9 @@ export const getTrendReport = async (req, res) => {
  * GET /v1/reports/customers
  * New vs returning split, cohort data summary.
  */
-export const getCustomersReport = async (req, res) => {
+export const getCustomersReport = async (req, res, WID) => {
     try {
-        const workspaceId = req.workspaceId;
+        const workspaceId = req.workspaceId || WID;
         const { fromDate, toDate } = parseReportParams(req);
 
         const customers = await db.orm.public.Customer.where({ workspaceId }).all();
