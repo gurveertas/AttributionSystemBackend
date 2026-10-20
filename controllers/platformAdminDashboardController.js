@@ -248,11 +248,11 @@ export const getCustomerReportView = async (req, res) => {
     if (!workspace) {
       return res.status(404).json({ message: "Workspace not found." });
     }
-    return await getCustomerReport(req, res, workspace.id);
+    return await getCustomersReport(req, res, workspace.id);
   } catch (error) {
-    console.error("getCustomerReport:", error.message);
+    console.error("getCustomersReport:", error.message);
     return res.status(500).json({
-      message: "Could not get customer report.",
+      message: "Could not get customers report.",
     });
   }
 }
