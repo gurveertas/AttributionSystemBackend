@@ -1,5 +1,5 @@
 import { db } from "../src/prisma/db.js";
-import { getDashboardOverview, getSummaryReport, getCampaignsReport, getChannelsReport, getLocationReport, getTrendReport} from "./reportsController.js";
+import { getDashboardOverview, getSummaryReport, getCampaignsReport, getChannelsReport, getLocationsReport, getTrendReport} from "./reportsController.js";
 import { listCustomers } from "./customerController.js";
 
 const orm = () => db.orm.public;
@@ -199,7 +199,7 @@ export const getTrendReportView = async (req, res) => {
   }
 }
 
-export const getLocationReportView = async (req, res) => {
+export const getLocationsReportView = async (req, res) => {
   try {
     if (req.user?.role !== "platform_admin") {
       return res.status(403).json({ message: "Platform admins only" });
@@ -219,7 +219,7 @@ export const getLocationReportView = async (req, res) => {
     if (!workspace) {
       return res.status(404).json({ message: "Workspace not found." });
     }
-    return await getLocationReport(req, res, workspace.id);
+    return await getLocationsReport(req, res, workspace.id);
   } catch (error) {
     console.error("getLocationReport:", error.message);
     return res.status(500).json({
