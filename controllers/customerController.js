@@ -92,9 +92,15 @@ export const listCustomers = async (req, res, WID) => {
  */
 export const getCustomerJourney = async (req, res) => {
     try {
-        const workspaceId = req.workspaceId || req.user?.workspaceId;
-        const customer = await db.orm.public.Customer.where({ id: req.params.id, workspaceId }).first();
+        const userWorkspaceId = req.workspaceId || req.user?.workspaceId;
+        const customerQuery = db.orm.public.Customer.where({ id: req.params.id });
+        const customer = userWorkspaceId
+            ? await customerQuery.where({ workspaceId: userWorkspaceId }).first()
+            : req.user?.role === "platform_admin"
+                ? await customerQuery.first()
+                : null;
         if (!customer) return res.status(404).json({ message: "Customer not found" });
+        const workspaceId = customer.workspaceId;
 
         // Get all visitors linked to this customer
         const visitors = await db.orm.public.Visitor.where({ workspaceId, customerId: customer.id }).all();
