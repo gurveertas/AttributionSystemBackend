@@ -226,9 +226,9 @@ export const addMember = async (req, res) => {
 }
 export const updateMember = async (req, res) => {
     try {
-        const userId = req.user?.id;
+        const userId = req.params.userId;
         if (!userId) {
-            return res.status(400).json({ message: "No user id found in request" });
+            return res.status(400).json({ message: "No user id found in URL" });
         }
         const { role, name, status } = req.body;
         if (!role && !name && !status) {
