@@ -410,7 +410,7 @@ export const getCustomersReport = async (req, res, WID) => {
  */
 export const getDashboardOverview = async (req, res, workspaceIdOverride = null) => {
     try {
-        const workspaceId = workspaceIdOverride ?? req.workspaceId ?? req.user?.workspaceId;
+        const workspaceId = workspaceIdOverride ? req.user?.workspaceId : null;
         if (!workspaceId) return res.status(401).json({ message: "Workspace id required" });
 
         const { fromDate, toDate, model, locationId } = parseReportParams(req);
