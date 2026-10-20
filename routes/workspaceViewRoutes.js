@@ -1,7 +1,7 @@
 import express from "express";
 const router = express.Router();
 import { protectRoute } from "../middlewares/protectRoute.js";
-import { getSummaryReportView, getWorkspaceDashboard, listCustomerView,getCampaignsReportView, getChannelsReportView, getLocationReportView, getTrendReportView, getCustomerReportView } from "../controllers/platformAdminDashboardController.js";
+import { getSummaryReportView, getWorkspaceDashboard, listCustomerView,getCampaignsReportView, getChannelsReportView, getLocationsReportView, getTrendReportView, getCustomerReportView } from "../controllers/platformAdminDashboardController.js";
 
 router.get('/workspace/:workspaceId', protectRoute, getWorkspaceDashboard);
 
@@ -13,7 +13,7 @@ router.get('/reports/channels/:workspaceId', protectRoute, getChannelsReportView
 
 router.get('/reports/campaigns/:workspaceId', protectRoute, getCampaignsReportView);
 
-router.get('/reports/locations/:workspaceId', protectRoute, getLocationReportView);
+router.get('/reports/locations/:workspaceId', protectRoute, getLocationsReportView);
 
 router.get('/reports/trends/:workspaceId', protectRoute, getTrendReportView);
 
