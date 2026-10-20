@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post('/add-member', protectRoute, addMember);
 
-router.patch("/update-details", protectRoute, updateDetails);
+router.patch("/:userId", protectRoute, updateDetails);
 
 router.delete('/:userId', protectRoute, deleteUser);
 
