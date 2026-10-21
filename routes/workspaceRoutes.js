@@ -96,7 +96,7 @@ router.get("/connectors/:id/events", protectRoute, requireRole("company_admin", 
 router.post("/connectors/:id/events/:eventId/replay", protectRoute, requireRole("company_admin", "platform_admin"), replayEvent);
 
 // ── Elysium Dashboard & Analytics (Cookie-Authenticated) ───────────────────
-// router.get("/dashboard", protectRoute, requireRole("company_admin", "company_viewer", "platform_admin"), getDashboardwOverview);
+router.get("/dashboard", protectRoute, requireRole("company_admin", "company_viewer", "platform_admin"), getDashboardOverview);
 router.get("/reports/dashboard", protectRoute, requireRole("company_admin", "company_viewer", "platform_admin"), getDashboardOverview);
 router.get("/reports/summary", protectRoute, requireRole("company_admin", "company_viewer", "platform_admin"), getSummaryReport);
 router.get("/reports/channels", protectRoute, requireRole("company_admin", "company_viewer", "platform_admin"), getChannelsReport);
