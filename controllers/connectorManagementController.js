@@ -46,17 +46,17 @@ export const createConnector = async (req, res) => {
                 ...storedConfig,
             });
 
-            await tx.orm.public.AuditLog.create({
-                workspaceId,
-                actorType: "user",
-                actorUserId: req.user.id,
-                action: "connector.created",
-                targetType: "connector",
-                targetId: created.id,
-                metadata: { type, name: name.trim() },
-                ip: req.ip ?? null,
-                userAgent: req.headers["user-agent"] ?? null,
-            });
+            // await tx.orm.public.AuditLog.create({
+            //     workspaceId,
+            //     actorType: "user",
+            //     actorUserId: req.user.id,
+            //     action: "connector.created",
+            //     targetType: "connector",
+            //     targetId: created.id,
+            //     metadata: { type, name: name.trim() },
+            //     ip: req.ip ?? null,
+            //     userAgent: req.headers["user-agent"] ?? null,
+            // });
 
             return created;
         });
