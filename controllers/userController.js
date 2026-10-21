@@ -191,15 +191,15 @@ export const updateDetails = async (req, res) => {
 };
 export const addMember = async (req, res) => {
     try {
-        const workspaceId = req.user.workspaceId ? req.user.workspaceId : req.body.workspaceId;
+        const workspaceId = req.user?.workspaceId ? req.user.workspaceId : req.body?.workspaceId;
         if (!workspaceId) {
             return res.status(400).json({ message: "No workspace id in middleware or body" });
         }
-        const workspace = await db.orm.public.Workspace.where({ id: workspaceId });
+        const workspace = await db.orm.public.Workspace.where({ id: workspaceId }).first();
         if (!workspace) {
             return res.status(404).json({ message: "Workspace not found" });
         }
-        const userRole = req.user.role;
+        const userRole = req.user?.role;
         if (userRole === "company_viewer") {
             return res.status(400).json({ message: "know your place, FOOL" });
         }
@@ -207,27 +207,80 @@ export const addMember = async (req, res) => {
         if (!name || !email || !password || !role) {
             return res.status(400).json({ message: "All credentials are required" });
         }
-        const existing = db.orm.public.User({email}).first();
-        if(existing){
-            return res.status(400).json({message : "user already exists"});
-        }
         const normalizedEmail = email.trim().toLowerCase();
+        const existing = await db.orm.public.User.where({ email: normalizedEmail }).first();
+        if (existing) {
+            return res.status(400).json({ message: "user already exists" });
+        }
         const passHash = await bcrypt.hash(password, 10);
         const user = await db.orm.public.User.create({
             workspaceId,
-            workspace: workspace.name,
             email: normalizedEmail,
             passwordHash: passHash,
-            name,
+            name: typeof name === 'string' ? name.trim() : name,
             role,
             status: "active",
         });
-        return res.status(201).json({ message: "member created succesfully" });
+        const { passwordHash: _, ...safeUser } = user;
+        return res.status(201).json({ message: "member created succesfully", user: safeUser });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ message: "Internal server error in addMember" });
     }
 }
+
+export const addPlatformAdmin = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (userRole !== "platform_admin") {
+            return res.status(403).json({ message: "Only platform admins can add another platform admin" });
+        }
+
+        const { name, email, password } = req.body;
+        if (!name || !email || !password) {
+            return res.status(400).json({ message: "All credentials are required" });
+        }
+
+        if (typeof name !== "string" || !name.trim()) {
+            return res.status(400).json({ message: "Name cannot be empty" });
+        }
+
+        if (typeof email !== "string" || !email.trim()) {
+            return res.status(400).json({ message: "Email cannot be empty" });
+        }
+
+        if (typeof password !== "string" || password.length < 8) {
+            return res.status(400).json({ message: "Password must be at least 8 characters long" });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const existing = await db.orm.public.User.where({ email: normalizedEmail }).first();
+        if (existing) {
+            return res.status(400).json({ message: "User already exists" });
+        }
+
+        const passHash = await bcrypt.hash(password, 10);
+        const user = await db.orm.public.User.create({
+            workspaceId: null,
+            email: normalizedEmail,
+            passwordHash: passHash,
+            name: name.trim(),
+            role: "platform_admin",
+            status: "active",
+            emailVerifiedAt: new Date().toISOString(),
+        });
+
+        const { passwordHash: _, ...safeUser } = user;
+
+        return res.status(201).json({
+            message: "Platform admin created successfully",
+            user: safeUser,
+        });
+    } catch (error) {
+        console.error("Error in addPlatformAdmin:", error);
+        return res.status(500).json({ message: "Internal server error in addPlatformAdmin" });
+    }
+};
 export const updateMember = async (req, res) => {
     try {
         const userId = req.params.userId;
