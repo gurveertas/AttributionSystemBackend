@@ -153,17 +153,17 @@ export const deleteConnector = async (req, res) => {
         if (!connector) return res.status(404).json({ message: "Connector not found" });
         await db.transaction(async (tx) => {
             await tx.orm.public.Connector.where({ id: connector.id }).delete();
-            await tx.orm.public.AuditLog.create({
-                workspaceId,
-                actorType: "user",
-                actorUserId: req.user.id,
-                action: "connector.deleted",
-                targetType: "connector",
-                targetId: connector.id,
-                metadata: { type: connector.type, name: connector.name },
-                ip: req.ip ?? null,
-                userAgent: req.headers["user-agent"] ?? null,
-            });
+            // await tx.orm.public.AuditLog.create({
+            //     workspaceId,
+            //     actorType: "user",
+            //     actorUserId: req.user.id,
+            //     action: "connector.deleted",
+            //     targetType: "connector",
+            //     targetId: connector.id,
+            //     metadata: { type: connector.type, name: connector.name },
+            //     ip: req.ip ?? null,
+            //     userAgent: req.headers["user-agent"] ?? null,
+            // });
         });
 
         return res.status(204).end();
