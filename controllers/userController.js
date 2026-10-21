@@ -1,10 +1,3 @@
-/**
- * User Controller — company profile updates
- *
- * PATCH /api/user/update-details
- * Allows a company admin to update their workspace and/or their own profile name.
- */
-
 import { db } from "../src/prisma/db.js";
 import bcrypt from 'bcryptjs';
 
@@ -343,6 +336,7 @@ export const deletePlatformAdmin = async (req, res) => {
         return res.status(500).json({ message: "Internal server error in deletePlatformAdmin" });
     }
 };
+
 
 export const updateMember = async (req, res) => {
     try {
