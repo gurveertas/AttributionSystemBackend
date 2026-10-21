@@ -281,6 +281,28 @@ export const addPlatformAdmin = async (req, res) => {
         return res.status(500).json({ message: "Internal server error in addPlatformAdmin" });
     }
 };
+
+export const getPlatformAdmins = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (userRole !== "platform_admin") {
+            return res.status(403).json({ message: "Only platform admins can view platform admins" });
+        }
+
+        const admins = await db.orm.public.User.where({ role: "platform_admin" }).all();
+        const safeAdmins = admins.map(({ passwordHash, ...admin }) => admin);
+
+        return res.status(200).json({
+            message: "Platform admins fetched successfully",
+            admins: safeAdmins,
+            data: safeAdmins,
+        });
+    } catch (error) {
+        console.error("Error in getPlatformAdmins:", error);
+        return res.status(500).json({ message: "Internal server error in getPlatformAdmins" });
+    }
+};
+
 export const updateMember = async (req, res) => {
     try {
         const userId = req.params.userId;
