@@ -12,10 +12,6 @@
       "model": "AttributionCredit",
       "namespace": "public"
     },
-    "AuditLog": {
-      "model": "AuditLog",
-      "namespace": "public"
-    },
     "Booking": {
       "model": "Booking",
       "namespace": "public"
@@ -872,160 +868,6 @@
               },
               "namespaceId": "public",
               "table": "AttributionCredit"
-            }
-          },
-          "AuditLog": {
-            "fields": {
-              "action": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "actorType": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                },
-                "valueSet": {
-                  "entityKind": "enum",
-                  "entityName": "ActorType",
-                  "namespaceId": "public",
-                  "plane": "domain"
-                }
-              },
-              "actorUserId": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "createdAt": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/timestamptz-string@1",
-                  "kind": "scalar"
-                }
-              },
-              "id": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "ip": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "metadata": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/json@1",
-                  "kind": "scalar"
-                }
-              },
-              "reason": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "targetId": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "targetType": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "userAgent": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "workspaceId": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              }
-            },
-            "relations": {
-              "workspace": {
-                "cardinality": "N:1",
-                "nullable": true,
-                "on": {
-                  "localFields": [
-                    "workspaceId"
-                  ],
-                  "targetFields": [
-                    "id"
-                  ]
-                },
-                "to": {
-                  "model": "Workspace",
-                  "namespace": "public"
-                }
-              }
-            },
-            "storage": {
-              "fields": {
-                "action": {
-                  "column": "action"
-                },
-                "actorType": {
-                  "column": "actorType"
-                },
-                "actorUserId": {
-                  "column": "actorUserId"
-                },
-                "createdAt": {
-                  "column": "createdAt"
-                },
-                "id": {
-                  "column": "id"
-                },
-                "ip": {
-                  "column": "ip"
-                },
-                "metadata": {
-                  "column": "metadata"
-                },
-                "reason": {
-                  "column": "reason"
-                },
-                "targetId": {
-                  "column": "targetId"
-                },
-                "targetType": {
-                  "column": "targetType"
-                },
-                "userAgent": {
-                  "column": "userAgent"
-                },
-                "workspaceId": {
-                  "column": "workspaceId"
-                }
-              },
-              "namespaceId": "public",
-              "table": "AuditLog"
             }
           },
           "Booking": {
@@ -5501,137 +5343,6 @@
               },
               "uniques": []
             },
-            "AuditLog": {
-              "checks": [
-                {
-                  "expression": "\"actorType\" IN ('user', 'platform_admin', 'api_key', 'system')",
-                  "name": "AuditLog_actorType_check_0d99bf46",
-                  "prefix": "AuditLog_actorType_check"
-                }
-              ],
-              "columns": {
-                "action": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": false
-                },
-                "actorType": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": false,
-                  "valueSet": {
-                    "entityKind": "valueSet",
-                    "entityName": "ActorType",
-                    "namespaceId": "public",
-                    "plane": "storage"
-                  }
-                },
-                "actorUserId": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
-                },
-                "createdAt": {
-                  "codecId": "pg/timestamptz-string@1",
-                  "dataType": "pg/timestamptz",
-                  "default": {
-                    "expression": "now()",
-                    "kind": "function"
-                  },
-                  "nullable": false
-                },
-                "id": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": false
-                },
-                "ip": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
-                },
-                "metadata": {
-                  "codecId": "pg/json@1",
-                  "dataType": "pg/json",
-                  "nullable": true
-                },
-                "reason": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
-                },
-                "targetId": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
-                },
-                "targetType": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
-                },
-                "userAgent": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
-                },
-                "workspaceId": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
-                }
-              },
-              "foreignKeys": [
-                {
-                  "source": {
-                    "columns": [
-                      "workspaceId"
-                    ],
-                    "namespaceId": "public",
-                    "tableName": "AuditLog"
-                  },
-                  "target": {
-                    "columns": [
-                      "id"
-                    ],
-                    "namespaceId": "public",
-                    "tableName": "Workspace"
-                  }
-                }
-              ],
-              "indexes": [
-                {
-                  "columns": [
-                    "action"
-                  ],
-                  "name": "AuditLog_action_idx_cd0d2116",
-                  "prefix": "AuditLog_action_idx",
-                  "unique": false
-                },
-                {
-                  "columns": [
-                    "actorUserId"
-                  ],
-                  "name": "AuditLog_actorUserId_idx_96dac96c",
-                  "prefix": "AuditLog_actorUserId_idx",
-                  "unique": false
-                },
-                {
-                  "columns": [
-                    "workspaceId"
-                  ],
-                  "name": "AuditLog_workspaceId_idx_ba65f874",
-                  "prefix": "AuditLog_workspaceId_idx",
-                  "unique": false
-                }
-              ],
-              "primaryKey": {
-                "columns": [
-                  "id"
-                ]
-              },
-              "uniques": []
-            },
             "Booking": {
               "checks": [
                 {
@@ -8809,10 +8520,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "9b29f5f99c1be4afd1f04e3b327b0dd28d2565e845ff23976ab9de0a7f6e4732"
+    "storageHash": "58a7f510a4e962a48260cf49ccb558d9cce891af32a7f8c3a643faad9b9a235c"
   },
   "execution": {
-    "executionHash": "3a248b67b4a032c80e1779c956c16abba54092d07f871e57fce47dc26566b4c9",
+    "executionHash": "37f05d33c7cd09084bc6cdab48f6409e82088acdf46599b702de5d501000e35d",
     "mutations": {
       "defaults": [
         {
@@ -8833,17 +8544,6 @@
           },
           "ref": {
             "entry": "AttributionCredit",
-            "field": "id",
-            "namespace": "public"
-          }
-        },
-        {
-          "onCreate": {
-            "id": "uuidv4",
-            "kind": "generator"
-          },
-          "ref": {
-            "entry": "AuditLog",
             "field": "id",
             "namespace": "public"
           }

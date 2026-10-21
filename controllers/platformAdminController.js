@@ -122,14 +122,14 @@ export const getPlatformDashboard = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const [workspaces, users, keys, connectors, webhooks, logs] =
+    const [workspaces, users, keys, connectors, webhooks] =
       await Promise.all([
         orm().Workspace.all(),
         orm().User.all(),
         orm().ApiKey.all(),
         orm().Connector.all(),
         orm().WebhookEndpoint.all(),
-        orm().AuditLog.all(),
+        // orm().AuditLog.all(),
       ]);
 
     return res.json({
@@ -194,7 +194,7 @@ export const getPlatformDashboard = async (req, res) => {
           active: webhooks.filter((x) => x.isActive).length,
         },
 
-        auditEvents: logs.length,
+        // auditEvents: logs.length,
       },
     })
   } catch (error) {
@@ -211,17 +211,17 @@ export const listWorkspaces = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
-    await audit(req, "admin.workspace_listed", {
-      reason,
-      targetType: "workspace",
-      metadata: {
-        status: req.query.status ?? null,
-        search: req.query.search ?? null,
-      },
-    });
+    // await audit(req, "admin.workspace_listed", {
+    //   reason,
+    //   targetType: "workspace",
+    //   metadata: {
+    //     status: req.query.status ?? null,
+    //     search: req.query.search ?? null,
+    //   },
+    // });
 
     let rows = await orm().Workspace.all();
 
@@ -261,8 +261,8 @@ export const getWorkspaceDetails = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const workspace = await getWorkspaceOr404(
       req.params.workspaceId,
@@ -271,12 +271,12 @@ export const getWorkspaceDetails = async (req, res) => {
 
     if (!workspace) return;
 
-    await audit(req, "admin.workspace_viewed", {
-      workspaceId: workspace.id,
-      targetType: "workspace",
-      targetId: workspace.id,
-      reason,
-    });
+    // await audit(req, "admin.workspace_viewed", {
+    //   workspaceId: workspace.id,
+    //   targetType: "workspace",
+    //   targetId: workspace.id,
+    //   reason,
+    // });
 
     const [users, sites, locations, keys, connectors, webhooks] =
       await Promise.all([
@@ -362,8 +362,8 @@ export const setWorkspaceStatus = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const { status, suspendedReason = null } = req.body ?? {};
 
@@ -380,16 +380,16 @@ export const setWorkspaceStatus = async (req, res) => {
 
     if (!workspace) return;
 
-    await audit(req, `admin.workspace_status_${status}`, {
-      workspaceId: workspace.id,
-      targetType: "workspace",
-      targetId: workspace.id,
-      reason,
-      metadata: {
-        previousStatus: workspace.status,
-        newStatus: status,
-      },
-    });
+    // await audit(req, `admin.workspace_status_${status}`, {
+    //   workspaceId: workspace.id,
+    //   targetType: "workspace",
+    //   targetId: workspace.id,
+    //   reason,
+    //   metadata: {
+    //     previousStatus: workspace.status,
+    //     newStatus: status,
+    //   },
+    // });
 
     const changes = {
       status,
@@ -444,8 +444,8 @@ export const updateWorkspaceSettings = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const workspace = await getWorkspaceOr404(
       req.params.workspaceId, res
@@ -470,13 +470,13 @@ export const updateWorkspaceSettings = async (req, res) => {
       });
     }
 
-    await audit(req, "admin.workspace_settings_updated", {
-      workspaceId: workspace.id,
-      targetType: "workspace",
-      targetId: workspace.id,
-      reason,
-      metadata: { changedFields: Object.keys(changes) },
-    });
+    // await audit(req, "admin.workspace_settings_updated", {
+    //   workspaceId: workspace.id,
+    //   targetType: "workspace",
+    //   targetId: workspace.id,
+    //   reason,
+    //   metadata: { changedFields: Object.keys(changes) },
+    // });
 
     const updated = await orm().Workspace
       .where({ id: workspace.id })
@@ -499,20 +499,20 @@ export const listWorkspaceUsers = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const workspace = await getWorkspaceOr404(
       req.params.workspaceId, res
     );
     if (!workspace) return;
 
-    await audit(req, "admin.workspace_users_listed", {
-      workspaceId: workspace.id,
-      targetType: "workspace",
-      targetId: workspace.id,
-      reason,
-    });
+    // await audit(req, "admin.workspace_users_listed", {
+    //   workspaceId: workspace.id,
+    //   targetType: "workspace",
+    //   targetId: workspace.id,
+    //   reason,
+    // });
 
     const users = await orm().User
       .where({ workspaceId: workspace.id }).all();
@@ -533,8 +533,8 @@ export const updateUser = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const userId = req.params.userId;
     if (!validId(userId)) {
@@ -578,19 +578,19 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    await audit(req, "admin.user_updated", {
-      workspaceId: user.workspaceId ?? null,
-      targetType: "user",
-      targetId: user.id,
-      reason,
-      metadata: {
-        changedFields: Object.keys(changes),
-        previousRole: user.role,
-        newRole: changes.role ?? user.role,
-        previousStatus: user.status,
-        newStatus: changes.status ?? user.status,
-      },
-    });
+    // await audit(req, "admin.user_updated", {
+    //   workspaceId: user.workspaceId ?? null,
+    //   targetType: "user",
+    //   targetId: user.id,
+    //   reason,
+    //   metadata: {
+    //     changedFields: Object.keys(changes),
+    //     previousRole: user.role,
+    //     newRole: changes.role ?? user.role,
+    //     previousStatus: user.status,
+    //     newStatus: changes.status ?? user.status,
+    //   },
+    // });
 
     await orm().User.where({ id: user.id }).update(changes);
 
@@ -614,15 +614,15 @@ export const listPlatformApiKeys = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const keys = await orm().ApiKey.all();
 
-    await audit(req, "admin.api_keys_listed", {
-      reason,
-      targetType: "api_key",
-    });
+    // await audit(req, "admin.api_keys_listed", {
+    //   reason,
+    //   targetType: "api_key",
+    // });
 
     const safeKeys = keys.map((key) => ({
       id: key.id,
@@ -660,8 +660,8 @@ export const revokePlatformApiKey = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const key = await orm().ApiKey
       .where({ id: req.params.keyId }).first();
@@ -674,13 +674,13 @@ export const revokePlatformApiKey = async (req, res) => {
       return res.json({ message: "API key is already revoked." });
     }
 
-    await audit(req, "admin.api_key_revoked", {
-      workspaceId: key.workspaceId,
-      targetType: "api_key",
-      targetId: key.id,
-      reason,
-      metadata: { keyPrefix: key.keyPrefix },
-    });
+    // await audit(req, "admin.api_key_revoked", {
+    //   workspaceId: key.workspaceId,
+    //   targetType: "api_key",
+    //   targetId: key.id,
+    //   reason,
+    //   metadata: { keyPrefix: key.keyPrefix },
+    // });
 
     await orm().ApiKey.where({ id: key.id }).update({
       revokedAt: now(),
@@ -700,15 +700,15 @@ export const listPlatformConnectors = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const rows = await orm().Connector.all();
 
-    await audit(req, "admin.connectors_listed", {
-      reason,
-      targetType: "connector",
-    });
+    // await audit(req, "admin.connectors_listed", {
+    //   reason,
+    //   targetType: "connector",
+    // });
 
     // Never return config or encrypted secrets to the client.
     const safeRows = rows.map((connector) => ({
@@ -737,8 +737,8 @@ export const setConnectorStatus = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const { status } = req.body ?? {};
     const allowedStatuses = ["active", "disabled", "error"];
@@ -758,16 +758,16 @@ export const setConnectorStatus = async (req, res) => {
       });
     }
 
-    await audit(req, "admin.connector_status_updated", {
-      workspaceId: connector.workspaceId,
-      targetType: "connector",
-      targetId: connector.id,
-      reason,
-      metadata: {
-        previousStatus: connector.status,
-        newStatus: status,
-      },
-    });
+    // await audit(req, "admin.connector_status_updated", {
+    //   workspaceId: connector.workspaceId,
+    //   targetType: "connector",
+    //   targetId: connector.id,
+    //   reason,
+    //   metadata: {
+    //     previousStatus: connector.status,
+    //     newStatus: status,
+    //   },
+    // });
 
     await orm().Connector.where({ id: connector.id }).update({
       status,
@@ -787,15 +787,15 @@ export const listPlatformWebhooks = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const rows = await orm().WebhookEndpoint.all();
 
-    await audit(req, "admin.webhooks_listed", {
-      reason,
-      targetType: "webhook",
-    });
+    // await audit(req, "admin.webhooks_listed", {
+    //   reason,
+    //   targetType: "webhook",
+    // });
 
     // Do not expose signingSecretEnc.
     const safeRows = rows.map((webhook) => ({
@@ -822,8 +822,8 @@ export const updatePlatformWebhook = async (req, res) => {
   try {
     if (!requirePlatformAdmin(req, res)) return;
 
-    const reason = await requireReason(req, res);
-    if (!reason) return;
+    // const reason = await requireReason(req, res);
+    // if (!reason) return;
 
     const webhook = await orm().WebhookEndpoint
       .where({ id: req.params.webhookId }).first();
@@ -850,13 +850,13 @@ export const updatePlatformWebhook = async (req, res) => {
       });
     }
 
-    await audit(req, "admin.webhook_updated", {
-      workspaceId: webhook.workspaceId,
-      targetType: "webhook",
-      targetId: webhook.id,
-      reason,
-      metadata: { changedFields: Object.keys(changes) },
-    });
+    // await audit(req, "admin.webhook_updated", {
+    //   workspaceId: webhook.workspaceId,
+    //   targetType: "webhook",
+    //   targetId: webhook.id,
+    //   reason,
+    //   metadata: { changedFields: Object.keys(changes) },
+    // });
 
     await orm().WebhookEndpoint
       .where({ id: webhook.id }).update(changes);

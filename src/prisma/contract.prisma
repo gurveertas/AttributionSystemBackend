@@ -230,25 +230,6 @@ model ApiKey {
   @@index([workspaceId])
 }
 
-model AuditLog {
-  id            String             @id @default(uuid())
-  workspaceId   String?
-  workspace     Workspace?         @relation(fields: [workspaceId], references: [id])
-  actorType     ActorType
-  actorUserId   String?
-  action        String
-  targetType    String?
-  targetId      String?
-  reason        String?
-  metadata      Json?
-  ip            String?
-  userAgent     String?
-  createdAt     TimestamptzString  @default(now())
-
-  @@index([actorUserId])
-  @@index([action])
-}
-
 model SupportAccessSession {
   id            String             @id @default(uuid())
   adminUserId   String
