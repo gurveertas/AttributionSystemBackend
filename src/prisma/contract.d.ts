@@ -2163,7 +2163,6 @@ export namespace Models {
     weekStart: CodecTypes['pg/int2@1']['output'];
     apiKeys: public_ApiKey[];
     attributionCredits: public_AttributionCredit[];
-    auditLogs: public_AuditLog[];
     bookings: public_Booking[];
     channelMappingRules: public_ChannelMappingRule[];
     checkoutSessions: public_CheckoutSession[];
@@ -2182,7 +2181,6 @@ export namespace Models {
     readonly [RelationKeys]?:
       | 'apiKeys'
       | 'attributionCredits'
-      | 'auditLogs'
       | 'bookings'
       | 'channelMappingRules'
       | 'checkoutSessions'
@@ -8138,17 +8136,6 @@ type ContractBase = Omit<
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
                   readonly model: 'AttributionCredit';
-                };
-                readonly cardinality: '1:N';
-                readonly on: {
-                  readonly localFields: readonly ['id'];
-                  readonly targetFields: readonly ['workspaceId'];
-                };
-              };
-              readonly auditLogs: {
-                readonly to: {
-                  readonly namespace: 'public' & NamespaceId;
-                  readonly model: 'AuditLog';
                 };
                 readonly cardinality: '1:N';
                 readonly on: {

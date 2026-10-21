@@ -4807,21 +4807,6 @@
                   "namespace": "public"
                 }
               },
-              "auditLogs": {
-                "cardinality": "1:N",
-                "on": {
-                  "localFields": [
-                    "id"
-                  ],
-                  "targetFields": [
-                    "workspaceId"
-                  ]
-                },
-                "to": {
-                  "model": "AuditLog",
-                  "namespace": "public"
-                }
-              },
               "bookings": {
                 "cardinality": "1:N",
                 "on": {

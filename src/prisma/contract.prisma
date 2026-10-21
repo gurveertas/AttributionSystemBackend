@@ -125,7 +125,6 @@ model Workspace {
   locations               Location[]
   apiKeys                 ApiKey[]
   invites                 Invite[]
-  auditLogs               AuditLog[]
   connectors              Connector[]
   webhookEndpoints        WebhookEndpoint[]
   channelMappingRules      ChannelMappingRule[]
@@ -246,7 +245,6 @@ model AuditLog {
   userAgent     String?
   createdAt     TimestamptzString  @default(now())
 
-  @@index([workspaceId])
   @@index([actorUserId])
   @@index([action])
 }
