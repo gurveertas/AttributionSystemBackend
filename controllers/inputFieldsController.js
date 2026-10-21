@@ -1,3 +1,5 @@
+import {db} from '../src/prisma/db.js';
+
 export const getIndustryList = async (req, res) => {
     try {
         const industries = await db.orm.public.Industry.all();
@@ -17,7 +19,7 @@ export const getIndustryList = async (req, res) => {
 
 export const getPaymentMethod = async (req, res) => {
     try {
-        const paymentgateways = db.orm.public.PaymentGateway.all();
+        const paymentgateways = await db.orm.public.PaymentGateway.all();
         return res.status(200).json({
             paymentgateways: paymentgateways.map(gateway => ({
                 id: gateway.id,
