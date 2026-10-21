@@ -91,3 +91,61 @@ export const addPaymentGateway = async (req, res) => {
         });
     }
 };
+
+export const deleteIndustry = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const industry = await db.orm.public.Industry.findUnique({
+            where: { id: Number(id) }
+        });
+
+        if (!industry) {
+            return res.status(404).json({
+                message: "Industry not found."
+            });
+        }
+
+        await db.orm.public.Industry.delete({
+            where: { id: Number(id) }
+        });
+
+        return res.status(200).json({
+            message: "Industry deleted successfully."
+        });
+    } catch (error) {
+        console.error("deleteIndustry:", error.message);
+        return res.status(500).json({
+            message: "Could not delete industry."
+        });
+    }
+};
+
+export const deletePaymentGateway = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const gateway = await db.orm.public.PaymentGateway.findUnique({
+            where: { id: Number(id) }
+        });
+
+        if (!gateway) {
+            return res.status(404).json({
+                message: "Payment gateway not found."
+            });
+        }
+
+        await db.orm.public.PaymentGateway.delete({
+            where: { id: Number(id) }
+        });
+
+        return res.status(200).json({
+            message: "Payment gateway deleted successfully."
+        });
+    } catch (error) {
+        console.error("deletePaymentGateway:", error.message);
+        return res.status(500).json({
+            message: "Could not delete payment gateway."
+        });
+    }
+};
