@@ -96,9 +96,7 @@ export const deleteIndustry = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const industry = await db.orm.public.Industry.findUnique({
-            where: { id: Number(id) }
-        });
+        const industry = await db.orm.public.Industry.where({id:Number(id)}).first();
 
         if (!industry) {
             return res.status(404).json({
@@ -106,9 +104,7 @@ export const deleteIndustry = async (req, res) => {
             });
         }
 
-        await db.orm.public.Industry.delete({
-            where: { id: Number(id) }
-        });
+        await db.orm.public.Industry.where({id:Number(id)}).delete();
 
         return res.status(200).json({
             message: "Industry deleted successfully."
@@ -125,9 +121,7 @@ export const deletePaymentGateway = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const gateway = await db.orm.public.PaymentGateway.findUnique({
-            where: { id: Number(id) }
-        });
+        const gateway = await db.orm.public.PaymentGateway.where({ id: Number(id) }).first();
 
         if (!gateway) {
             return res.status(404).json({
@@ -135,9 +129,7 @@ export const deletePaymentGateway = async (req, res) => {
             });
         }
 
-        await db.orm.public.PaymentGateway.delete({
-            where: { id: Number(id) }
-        });
+        await db.orm.public.PaymentGateway.where({ id: Number(id)}).delete();
 
         return res.status(200).json({
             message: "Payment gateway deleted successfully."
