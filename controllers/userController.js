@@ -303,6 +303,47 @@ export const getPlatformAdmins = async (req, res) => {
     }
 };
 
+export const deletePlatformAdmin = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (userRole !== "platform_admin") {
+            return res.status(403).json({ message: "Only platform admins can delete a platform admin" });
+        }
+
+        const userId = req.params.userId || req.params.id;
+        if (!userId) {
+            return res.status(400).json({ message: "User ID is required" });
+        }
+
+        if (req.user?.id === userId) {
+            return res.status(400).json({ message: "You cannot delete your own account" });
+        }
+
+        const user = await db.orm.public.User.where({ id: userId }).first();
+        if (!user) {
+            return res.status(404).json({ message: "Platform admin not found" });
+        }
+
+        if (user.role !== "platform_admin") {
+            return res.status(400).json({ message: "Target user is not a platform admin" });
+        }
+
+        const admins = await db.orm.public.User.where({ role: "platform_admin" }).all();
+        if (admins.length <= 1) {
+            return res.status(400).json({ message: "Cannot delete the only remaining platform admin" });
+        }
+
+        await db.orm.public.User.where({ id: userId }).delete();
+
+        return res.status(200).json({
+            message: "Platform admin deleted successfully",
+        });
+    } catch (error) {
+        console.error("Error in deletePlatformAdmin:", error);
+        return res.status(500).json({ message: "Internal server error in deletePlatformAdmin" });
+    }
+};
+
 export const updateMember = async (req, res) => {
     try {
         const userId = req.params.userId;
