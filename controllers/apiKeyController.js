@@ -164,7 +164,7 @@ export const createApiKey = async (req, res) => {
         rateLimitPerMin: Number(rateLimitPerMin) || RATE_LIMIT_PER_MIN,
         createdBy: req.user.id,
       });
-      await audit(tx, req, workspaceId, "api_key.created", row.id, { mode, type: keyType });
+      // await audit(tx, req, workspaceId, "api_key.created", row.id, { mode, type: keyType });
       return row;
     });
 
