@@ -207,6 +207,10 @@ export const addMember = async (req, res) => {
         if (!name || !email || !password || !role) {
             return res.status(400).json({ message: "All credentials are required" });
         }
+        const existing = db.orm.public.User({email}).first();
+        if(existing){
+            return res.status(400).json({message : "user already exists"});
+        }
         const normalizedEmail = email.trim().toLowerCase();
         const passHash = await bcrypt.hash(password, 10);
         const user = await db.orm.public.User.create({
