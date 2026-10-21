@@ -13,7 +13,7 @@ import workspaceViewRoutes from './routes/workspaceViewRoutes.js';
 import workspaceRoutes from './routes/workspaceRoutes.js';
 import platformAdminRoutes from './routes/platformAdminRoutes.js';
 import v1Routes from './routes/v1Routes.js';
-import inputFieldRoutes from './routes/inputFieldRoutes.js';
+import inputFieldRoutes from './routes/inputFieldsRoutes.js';
 import connectorRoutes from './routes/connectorRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
