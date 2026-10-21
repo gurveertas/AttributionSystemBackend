@@ -13,6 +13,7 @@ import workspaceViewRoutes from './routes/workspaceViewRoutes.js';
 import workspaceRoutes from './routes/workspaceRoutes.js';
 import platformAdminRoutes from './routes/platformAdminRoutes.js';
 import v1Routes from './routes/v1Routes.js';
+import inputFieldRoutes from './routes/inputFieldRoutes.js';
 import connectorRoutes from './routes/connectorRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
@@ -68,7 +69,8 @@ app.use('/api/user', userRoutes);
 app.use('/api/sites', siteRoutes);
 app.use('/api/workspace', workspaceRoutes);
 app.use('/api/platform-admin', platformAdminRoutes);
-app.use('/api/view', workspaceViewRoutes)
+app.use('/api/view', workspaceViewRoutes);
+app.use('/api', inputFieldRoutes);
 
 // ── Public API (API-key-based auth) ────────────────────────────────────────
 app.use('/v1', v1Routes);
