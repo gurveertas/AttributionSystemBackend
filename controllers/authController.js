@@ -192,8 +192,8 @@ export const companyLogin = async (req, res) => {
         }).first();
 
         if (!user) {
-            return res.status(404).json({
-                message: "User not found",
+            return res.status(401).json({
+                message: "Invalid email or password",
             });
         }
         const isMatch = await bcrypt.compare(password, user.passwordHash);
@@ -202,6 +202,23 @@ export const companyLogin = async (req, res) => {
                 message: "Invalid email or password",
             });
         }
+
+        // Only active users may start a session. This also rejects invited users.
+        if (user.status !== "active") {
+            return res.status(403).json({ message: "Account is not active" });
+        }
+
+        // Platform admins may be global users without a workspace. Every other
+        // account must belong to an active workspace before receiving a cookie.
+        if (user.workspaceId) {
+            const workspace = await db.orm.public.Workspace.where({ id: user.workspaceId }).first();
+            if (!workspace || workspace.status !== "active") {
+                return res.status(403).json({ message: "Workspace is not active" });
+            }
+        } else if (user.role !== "platform_admin") {
+            return res.status(403).json({ message: "Workspace is not active" });
+        }
+
         genToken(user, res);
         return res.status(200).json({
             message: "User verified",

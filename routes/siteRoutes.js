@@ -15,12 +15,13 @@ const router = Router();
 // Every site route needs a login and a company admin
 router.use(protectRoute, requireRole("company_admin"));
 
-router.post("/", protectRoute, addSite);
-router.get("/", protectRoute, listSites);
-router.get("/:id", protectRoute, getSite);
-router.patch("/:id", protectRoute, updateSite);
-router.delete("/:id", protectRoute, deleteSite);
-router.post("/:id/verify-domain", protectRoute, verifySite);
-router.post("/:id/verify", protectRoute, verifySite);
+router.post("/", addSite);
+router.get("/", listSites);
+router.get("/:id", getSite);
+router.patch("/:id", updateSite);
+router.delete("/:id", deleteSite);
+router.post("/:id/verify-domain", verifySite);
+// Legacy alias retained for clients that used the shorter path.
+router.post("/:id/verify", verifySite);
 
 export default router;

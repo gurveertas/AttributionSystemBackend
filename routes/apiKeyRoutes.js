@@ -6,20 +6,20 @@ import {
   revokeApiKey,
   rotateApiKey,
 } from '../controllers/apiKeyController.js';
-import {protectRoute, requireRole} from '../middlewares/protectRoute.js'
+import { protectRoute } from '../middlewares/protectRoute.js';
 
 const router = express.Router();
 
-router.post('/', protectRoute, createApiKey);
+router.use(protectRoute);
 
-router.get('/', protectRoute, listApiKeys);
+router.post('/', createApiKey);
 
-router.patch('/:id', protectRoute, updateApiKey);
+router.get('/', listApiKeys);
 
-router.delete('/:id', protectRoute, revokeApiKey);
+router.patch('/:id', updateApiKey);
 
-router.post('/rotate',protectRoute, rotateApiKey);
+router.delete('/:id', revokeApiKey);
 
-// router.get("/companies/:companyId/api-keys", protectRoute, requireRole("platform_admin"), adminListApiKeys);
+router.post('/rotate', rotateApiKey);
 
 export default router;

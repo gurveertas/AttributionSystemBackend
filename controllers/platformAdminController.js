@@ -403,7 +403,7 @@ export const setWorkspaceStatus = async (req, res) => {
       changes.approvedAt = now();
       changes.approvedBy = req.user.id;
     }
-
+    const members = orm().User.where({workspaceId : workspace.id}).update({status : "deactivated"});
     const updated = await orm()
       .Workspace.where({ id: workspace.id })
       .update(changes);

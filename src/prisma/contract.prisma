@@ -6,7 +6,6 @@
 
 enum WorkspaceStatus {
   @@type("pg/text@1")
-  pending   = "pending"
   active    = "active"
   suspended = "suspended"
   closed    = "closed"
@@ -38,7 +37,6 @@ enum UserRole {
 
 enum UserStatus {
   @@type("pg/text@1")
-  invited     = "invited"
   active      = "active"
   deactivated = "deactivated"
 }

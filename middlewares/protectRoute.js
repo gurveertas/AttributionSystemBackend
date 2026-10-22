@@ -16,7 +16,18 @@ export const protectRoute = async (req, res, next) => {
     const user = await db.orm.public.User.where({ id: decoded.id }).first();
     if (!user) return res.status(401).json({ message: "User no longer exists" });
     if (user.status !== "active")
-      return res.status(403).json({ message: "Account is not active" });
+      return res.status(403).json({message: "Account is not active" });
+
+    // Recheck workspace state for every request so existing cookies stop
+    // working immediately if the workspace is suspended, closed, or pending.
+    if (user.workspaceId) {
+      const workspace = await db.orm.public.Workspace.where({ id: user.workspaceId }).first();
+      if (!workspace || workspace.status !== "active")
+        return res.status(403).json({ message: "Workspace is not active" });
+    } else if (user.role !== "platform_admin") {
+      return res.status(403).json({ message: "Workspace is not active" });
+    }
+
     req.user = {
       id: user.id,
       role: user.role,
