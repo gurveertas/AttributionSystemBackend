@@ -62,7 +62,7 @@ export const createConnector = async (req, res) => {
         });
 
         // Build the webhook URL the user should configure in their system
-        const baseUrl = process.env.APP_API_URL || `https://asbtemp-production.up.railway.app`;
+        const baseUrl = process.env.APP_API_URL || `https://asbtemp.vercel.app`;
         const webhookUrl = `${baseUrl}/api/connectors/${type}/webhook?connectorId=${connector.id}`;
 
         return res.status(201).json({
@@ -79,6 +79,8 @@ export const createConnector = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+export const createStripeConnector
 
 /**
  * GET /api/workspace/connectors
