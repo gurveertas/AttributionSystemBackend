@@ -95,7 +95,7 @@ model Workspace {
   id                      String              @id @default(uuid())
   name                    String
   slug                    String              @unique
-  status                  WorkspaceStatus     @default(pending)
+  status                  WorkspaceStatus     @default(active)
   country                 VarChar(2)
   dataRegion              String?
   industry                String?
@@ -145,7 +145,7 @@ model User {
   passwordHash      String
   name              String
   role              UserRole
-  status            UserStatus         @default(invited)
+  status            UserStatus         @default(active)
   emailVerifiedAt   TimestamptzString?
   twoFactorEnabled  Boolean            @default(false)
   failedLoginCount  Int                @default(0)

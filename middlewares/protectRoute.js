@@ -19,10 +19,14 @@ export const protectRoute = async (req, res, next) => {
       return res.status(403).json({message: "Account is not active" });
 
     // Recheck workspace state for every request so existing cookies stop
-    // working immediately if the workspace is suspended, closed, or pending.
+    // working immediately if the workspace is suspended, closed, or unverified.
     if (user.workspaceId) {
       const workspace = await db.orm.public.Workspace.where({ id: user.workspaceId }).first();
-      if (!workspace || workspace.status !== "active")
+      if (
+        !workspace ||
+        workspace.status !== "active" ||
+        workspace.emailVerificationHash
+      )
         return res.status(403).json({ message: "Workspace is not active" });
     } else if (user.role !== "platform_admin") {
       return res.status(403).json({ message: "Workspace is not active" });

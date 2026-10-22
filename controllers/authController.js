@@ -77,7 +77,7 @@ export const registerCompany = async (req, res) => {
                 // websiteUrl: websiteUrl || null,
                 timezone,
                 reportingCurrency: currency.toUpperCase(),
-                status: "pending",
+                status: "active",
                 emailVerificationHash: tokenHash,
                 emailVerificationExpires: emailVerificationExpiry,
             });
@@ -139,7 +139,6 @@ export const verifyUser = async (req, res) => {
         const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
         const workspace = await db.orm.public.Workspace.where({
             emailVerificationHash: tokenHash,
-            status: "pending",
             emailVerificationExpires: { gt: new Date() },
         }).first();
 
@@ -203,7 +202,7 @@ export const companyLogin = async (req, res) => {
             });
         }
 
-        // Only active users may start a session. This also rejects invited users.
+        // Only active users may start a session.
         if (user.status !== "active") {
             return res.status(403).json({ message: "Account is not active" });
         }
@@ -212,7 +211,11 @@ export const companyLogin = async (req, res) => {
         // account must belong to an active workspace before receiving a cookie.
         if (user.workspaceId) {
             const workspace = await db.orm.public.Workspace.where({ id: user.workspaceId }).first();
-            if (!workspace || workspace.status !== "active") {
+            if (
+                !workspace ||
+                workspace.status !== "active" ||
+                workspace.emailVerificationHash
+            ) {
                 return res.status(403).json({ message: "Workspace is not active" });
             }
         } else if (user.role !== "platform_admin") {

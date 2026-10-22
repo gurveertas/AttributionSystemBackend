@@ -58,9 +58,9 @@ Endpoints returning paginated data provide:
 ```
 
 ### Key Enums Reference
-* **WorkspaceStatus:** `pending`, `active`, `suspended`, `closed`
+* **WorkspaceStatus:** `active`, `suspended`, `closed`
 * **UserRole:** `platform_admin`, `company_admin`, `company_viewer`
-* **UserStatus:** `invited`, `active`, `deactivated`
+* **UserStatus:** `active`, `deactivated`
 * **ApiKeyMode:** `test`, `live`
 * **ApiKeyType:** `publishable`, `secret`
 * **VerificationMethod:** `dns_txt`, `meta_tag`

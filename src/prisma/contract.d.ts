@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'58a7f510a4e962a48260cf49ccb558d9cce891af32a7f8c3a643faad9b9a235c'>;
+  StorageHashBase<'ba97c334c1e62c3d575dd83340c422bf60a502d2407ec27c5c59ee80ef2fbfff'>;
 export type ExecutionHash =
   ExecutionHashBase<'37f05d33c7cd09084bc6cdab48f6409e82088acdf46599b702de5d501000e35d'>;
 export type ProfileHash =
@@ -522,7 +522,7 @@ export type FieldOutputTypes = {
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly passwordHash: CodecTypes['pg/text@1']['output'];
       readonly role: 'platform_admin' | 'company_admin' | 'company_viewer';
-      readonly status: 'invited' | 'active' | 'deactivated';
+      readonly status: 'active' | 'deactivated';
       readonly twoFactorEnabled: CodecTypes['pg/bool@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly workspaceId: CodecTypes['pg/text@1']['output'] | null;
@@ -578,7 +578,7 @@ export type FieldOutputTypes = {
       readonly rawRetentionMonths: CodecTypes['pg/int4@1']['output'];
       readonly reportingCurrency: Varchar<3>;
       readonly slug: CodecTypes['pg/text@1']['output'];
-      readonly status: 'pending' | 'active' | 'suspended' | 'closed';
+      readonly status: 'active' | 'suspended' | 'closed';
       readonly suspendedReason: CodecTypes['pg/text@1']['output'] | null;
       readonly timezone: CodecTypes['pg/text@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -877,7 +877,7 @@ export type FieldInputTypes = {
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly passwordHash: CodecTypes['pg/text@1']['input'];
       readonly role: 'platform_admin' | 'company_admin' | 'company_viewer';
-      readonly status: 'invited' | 'active' | 'deactivated';
+      readonly status: 'active' | 'deactivated';
       readonly twoFactorEnabled: CodecTypes['pg/bool@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly workspaceId: CodecTypes['pg/text@1']['input'] | null;
@@ -933,7 +933,7 @@ export type FieldInputTypes = {
       readonly rawRetentionMonths: CodecTypes['pg/int4@1']['input'];
       readonly reportingCurrency: CodecTypes['sql/varchar@1']['input'];
       readonly slug: CodecTypes['pg/text@1']['input'];
-      readonly status: 'pending' | 'active' | 'suspended' | 'closed';
+      readonly status: 'active' | 'suspended' | 'closed';
       readonly suspendedReason: CodecTypes['pg/text@1']['input'] | null;
       readonly timezone: CodecTypes['pg/text@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -1232,7 +1232,7 @@ export type StorageColumnTypes = {
       readonly name: CodecTypes['pg/text@1']['output'];
       readonly passwordHash: CodecTypes['pg/text@1']['output'];
       readonly role: 'platform_admin' | 'company_admin' | 'company_viewer';
-      readonly status: 'invited' | 'active' | 'deactivated';
+      readonly status: 'active' | 'deactivated';
       readonly twoFactorEnabled: CodecTypes['pg/bool@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly workspaceId: CodecTypes['pg/text@1']['output'] | null;
@@ -1288,7 +1288,7 @@ export type StorageColumnTypes = {
       readonly rawRetentionMonths: CodecTypes['pg/int4@1']['output'];
       readonly reportingCurrency: Varchar<3>;
       readonly slug: CodecTypes['pg/text@1']['output'];
-      readonly status: 'pending' | 'active' | 'suspended' | 'closed';
+      readonly status: 'active' | 'suspended' | 'closed';
       readonly suspendedReason: CodecTypes['pg/text@1']['output'] | null;
       readonly timezone: CodecTypes['pg/text@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -1587,7 +1587,7 @@ export type StorageColumnInputTypes = {
       readonly name: CodecTypes['pg/text@1']['input'];
       readonly passwordHash: CodecTypes['pg/text@1']['input'];
       readonly role: 'platform_admin' | 'company_admin' | 'company_viewer';
-      readonly status: 'invited' | 'active' | 'deactivated';
+      readonly status: 'active' | 'deactivated';
       readonly twoFactorEnabled: CodecTypes['pg/bool@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly workspaceId: CodecTypes['pg/text@1']['input'] | null;
@@ -1643,7 +1643,7 @@ export type StorageColumnInputTypes = {
       readonly rawRetentionMonths: CodecTypes['pg/int4@1']['input'];
       readonly reportingCurrency: CodecTypes['sql/varchar@1']['input'];
       readonly slug: CodecTypes['pg/text@1']['input'];
-      readonly status: 'pending' | 'active' | 'suspended' | 'closed';
+      readonly status: 'active' | 'suspended' | 'closed';
       readonly suspendedReason: CodecTypes['pg/text@1']['input'] | null;
       readonly timezone: CodecTypes['pg/text@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -2017,7 +2017,7 @@ export namespace Models {
     name: CodecTypes['pg/text@1']['output'];
     passwordHash: CodecTypes['pg/text@1']['output'];
     role: 'platform_admin' | 'company_admin' | 'company_viewer';
-    status: 'invited' | 'active' | 'deactivated';
+    status: 'active' | 'deactivated';
     twoFactorEnabled: CodecTypes['pg/bool@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     workspaceId: CodecTypes['pg/text@1']['output'] | null;
@@ -2083,7 +2083,7 @@ export namespace Models {
     rawRetentionMonths: CodecTypes['pg/int4@1']['output'];
     reportingCurrency: Varchar<3>;
     slug: CodecTypes['pg/text@1']['output'];
-    status: 'pending' | 'active' | 'suspended' | 'closed';
+    status: 'active' | 'suspended' | 'closed';
     suspendedReason: CodecTypes['pg/text@1']['output'] | null;
     timezone: CodecTypes['pg/text@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -4558,7 +4558,7 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly default: {
                     readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/text@1', 'invited'>;
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'active'>;
                   };
                   readonly many: false;
                 };
@@ -5006,7 +5006,7 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly default: {
                     readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/text@1', 'pending'>;
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'active'>;
                   };
                   readonly many: false;
                 };
@@ -5146,7 +5146,7 @@ type ContractBase = Omit<
             };
             readonly UserStatus: {
               readonly kind: 'valueSet';
-              readonly values: readonly ['invited', 'active', 'deactivated'];
+              readonly values: readonly ['active', 'deactivated'];
             };
             readonly VerificationMethod: {
               readonly kind: 'valueSet';
@@ -5154,7 +5154,7 @@ type ContractBase = Omit<
             };
             readonly WorkspaceStatus: {
               readonly kind: 'valueSet';
-              readonly values: readonly ['pending', 'active', 'suspended', 'closed'];
+              readonly values: readonly ['active', 'suspended', 'closed'];
             };
           };
         };
@@ -8190,7 +8190,6 @@ type ContractBase = Omit<
           readonly UserStatus: {
             readonly codecId: 'pg/text@1';
             readonly members: readonly [
-              { readonly name: 'invited'; readonly value: 'invited' },
               { readonly name: 'active'; readonly value: 'active' },
               { readonly name: 'deactivated'; readonly value: 'deactivated' },
             ];
@@ -8205,7 +8204,6 @@ type ContractBase = Omit<
           readonly WorkspaceStatus: {
             readonly codecId: 'pg/text@1';
             readonly members: readonly [
-              { readonly name: 'pending'; readonly value: 'pending' },
               { readonly name: 'active'; readonly value: 'active' },
               { readonly name: 'suspended'; readonly value: 'suspended' },
               { readonly name: 'closed'; readonly value: 'closed' },

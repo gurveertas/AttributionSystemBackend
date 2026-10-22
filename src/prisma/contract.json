@@ -414,10 +414,6 @@
             "codecId": "pg/text@1",
             "members": [
               {
-                "name": "invited",
-                "value": "invited"
-              },
-              {
                 "name": "active",
                 "value": "active"
               },
@@ -443,10 +439,6 @@
           "WorkspaceStatus": {
             "codecId": "pg/text@1",
             "members": [
-              {
-                "name": "pending",
-                "value": "pending"
-              },
               {
                 "name": "active",
                 "value": "active"
@@ -7690,8 +7682,8 @@
                   "prefix": "User_role_check"
                 },
                 {
-                  "expression": "\"status\" IN ('invited', 'active', 'deactivated')",
-                  "name": "User_status_check_f856bcca",
+                  "expression": "\"status\" IN ('active', 'deactivated')",
+                  "name": "User_status_check_3d09cf32",
                   "prefix": "User_status_check"
                 }
               ],
@@ -7765,7 +7757,7 @@
                   "dataType": "pg/text",
                   "default": {
                     "kind": "literal",
-                    "value": "invited"
+                    "value": "active"
                   },
                   "nullable": false,
                   "valueSet": {
@@ -8157,8 +8149,8 @@
                   "prefix": "Workspace_defaultModel_check"
                 },
                 {
-                  "expression": "\"status\" IN ('pending', 'active', 'suspended', 'closed')",
-                  "name": "Workspace_status_check_4dc0f300",
+                  "expression": "\"status\" IN ('active', 'suspended', 'closed')",
+                  "name": "Workspace_status_check_79918751",
                   "prefix": "Workspace_status_check"
                 }
               ],
@@ -8305,7 +8297,7 @@
                   "dataType": "pg/text",
                   "default": {
                     "kind": "literal",
-                    "value": "pending"
+                    "value": "active"
                   },
                   "nullable": false,
                   "valueSet": {
@@ -8493,7 +8485,6 @@
             "UserStatus": {
               "kind": "valueSet",
               "values": [
-                "invited",
                 "active",
                 "deactivated"
               ]
@@ -8508,7 +8499,6 @@
             "WorkspaceStatus": {
               "kind": "valueSet",
               "values": [
-                "pending",
                 "active",
                 "suspended",
                 "closed"
@@ -8520,7 +8510,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "58a7f510a4e962a48260cf49ccb558d9cce891af32a7f8c3a643faad9b9a235c"
+    "storageHash": "ba97c334c1e62c3d575dd83340c422bf60a502d2407ec27c5c59ee80ef2fbfff"
   },
   "execution": {
     "executionHash": "37f05d33c7cd09084bc6cdab48f6409e82088acdf46599b702de5d501000e35d",

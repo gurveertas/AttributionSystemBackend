@@ -5,7 +5,6 @@ const orm = (client = db) => client.orm.public;
 const ADMIN_ROLE = "platform_admin";
 
 const WORKSPACE_STATUSES = new Set([
-  "pending",
   "active",
   "suspended",
   "closed",
@@ -136,8 +135,8 @@ export const getPlatformDashboard = async (req, res) => {
       data: {
         workspaces: {
           total: workspaces.length,
-          pending: workspaces.filter(
-            (x) => x.status === "pending"
+          unverified: workspaces.filter(
+            (x) => Boolean(x.emailVerificationHash)
           ).length,
           active: workspaces.filter(
             (x) => x.status === "active"
@@ -560,7 +559,7 @@ export const updateUser = async (req, res) => {
     }
 
     if (changes.status &&
-        !["invited", "active", "deactivated"].includes(changes.status)) {
+        !["active", "deactivated"].includes(changes.status)) {
       return res.status(400).json({ message: "Invalid user status." });
     }
 
