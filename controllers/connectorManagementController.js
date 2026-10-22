@@ -80,7 +80,6 @@ export const createConnector = async (req, res) => {
     }
 };
 
-export const createStripeConnector
 
 /**
  * GET /api/workspace/connectors
