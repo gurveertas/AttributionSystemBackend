@@ -116,6 +116,7 @@ async function lookupConnector(connectorId, workspaceId) {
  *
  */
 export const stripeWebhook = async (req, res) => {
+    console.log("Webhook triggered");
     const connectorId = req.query.connectorId;
     if (!connectorId) return res.status(400).json({ message: "connectorId query param required" });
 

@@ -23,6 +23,9 @@ export function prepareConnectorConfig(config) {
     if (!config || typeof config !== "object" || Array.isArray(config)) {
         throw new TypeError("Connector config must be an object");
     }
+    if (Object.prototype.hasOwnProperty.call(config, "secrets")) {
+        throw new TypeError("config.secrets is managed by the server");
+    }
 
     const publicConfig = { ...config };
     const secrets = {};
@@ -37,11 +40,22 @@ export function prepareConnectorConfig(config) {
         }
     }
 
+    const encryptedSecrets = Object.fromEntries(
+        Object.entries(secrets).map(([field, value]) => [
+            field,
+            encryptSecret(value).toString("base64"),
+        ])
+    );
+
     return {
-        config: Object.keys(publicConfig).length ? publicConfig : null,
-        secretsEnc: Object.keys(secrets).length
-            ? encryptSecret(JSON.stringify(secrets))
+        config: Object.keys(publicConfig).length || Object.keys(encryptedSecrets).length
+            ? {
+                ...publicConfig,
+                ...(Object.keys(encryptedSecrets).length ? { secrets: encryptedSecrets } : {}),
+            }
             : null,
+        // New secrets live in config.secrets. Keep the legacy column empty on writes.
+        secretsEnc: null,
     };
 }
 
@@ -49,18 +63,43 @@ export function getConnectorConfig(connector) {
     const config = connector.config && typeof connector.config === "object"
         ? { ...connector.config }
         : {};
+    const storedSecrets = config.secrets;
+    delete config.secrets;
 
-    if (!connector.secretsEnc) return config;
-
-    const serializedSecrets = decryptSecret(connector.secretsEnc);
-    let secrets;
-    try {
-        secrets = JSON.parse(serializedSecrets);
-    } catch {
-        throw new Error(`Connector ${connector.id} has invalid encrypted configuration`);
+    // Read legacy plaintext-in-config secrets while existing records are migrated.
+    const secrets = {};
+    for (const field of SECRET_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(config, field)) {
+            secrets[field] = config[field];
+            delete config[field];
+        }
     }
-    if (!secrets || typeof secrets !== "object" || Array.isArray(secrets)) {
-        throw new Error(`Connector ${connector.id} has invalid encrypted configuration`);
+
+    // Backward compatibility for connectors written before secrets moved into config.
+    if (connector.secretsEnc) {
+        const serializedSecrets = decryptSecret(connector.secretsEnc);
+        let legacySecrets;
+        try {
+            legacySecrets = JSON.parse(serializedSecrets);
+        } catch {
+            throw new Error(`Connector ${connector.id} has invalid encrypted configuration`);
+        }
+        if (!legacySecrets || typeof legacySecrets !== "object" || Array.isArray(legacySecrets)) {
+            throw new Error(`Connector ${connector.id} has invalid encrypted configuration`);
+        }
+        Object.assign(secrets, legacySecrets);
+    }
+
+    if (storedSecrets !== undefined) {
+        if (!storedSecrets || typeof storedSecrets !== "object" || Array.isArray(storedSecrets)) {
+            throw new Error(`Connector ${connector.id} has invalid encrypted configuration`);
+        }
+        for (const [field, ciphertext] of Object.entries(storedSecrets)) {
+            if (typeof ciphertext !== "string") {
+                throw new Error(`Connector ${connector.id} has invalid encrypted configuration`);
+            }
+            secrets[field] = decryptSecret(Buffer.from(ciphertext, "base64"));
+        }
     }
 
     return { ...config, ...secrets };

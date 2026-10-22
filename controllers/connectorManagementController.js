@@ -7,7 +7,7 @@
 
 import crypto from "crypto";
 import { db } from "../src/prisma/db.js";
-import { prepareConnectorConfig } from "../utils/connectorConfig.js";
+import { getConnectorConfig, prepareConnectorConfig } from "../utils/connectorConfig.js";
 
 const orm = () => db.orm.public;
 const VALID_TYPES = ["zenoti", "stripe", "shopify", "razorpay", "generic", "woocommerce", "paypal", "square"];
@@ -80,6 +80,13 @@ export const createConnector = async (req, res) => {
     }
 };
 
+export const updateStripeConnector = async (req, res) => {
+    const {webhookSecret} = req.body;
+    if(!webhookSecret){
+        return res.status(400).json({message : "no webhook secret provided still"});
+    }
+    
+}
 
 /**
  * GET /api/workspace/connectors
@@ -129,7 +136,11 @@ export const updateConnector = async (req, res) => {
 
         if (Object.prototype.hasOwnProperty.call(changes, "config")) {
             try {
-                Object.assign(changes, prepareConnectorConfig(changes.config));
+                if (!changes.config || typeof changes.config !== "object" || Array.isArray(changes.config)) {
+                    throw new TypeError("Connector config must be an object");
+                }
+                const mergedConfig = { ...getConnectorConfig(connector), ...changes.config };
+                Object.assign(changes, prepareConnectorConfig(mergedConfig));
             } catch (error) {
                 return res.status(400).json({ message: error.message });
             }
